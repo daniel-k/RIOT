@@ -249,6 +249,21 @@ void ng_at86rf2xx_set_max_retries(ng_at86rf2xx_t *dev, uint8_t max)
     ng_at86rf2xx_reg_write(dev, NG_AT86RF2XX_REG__XAH_CTRL_0, tmp);
 }
 
+void ng_at86rf2xx_set_cca_mode(ng_at86rf2xx_t *dev, uint8_t mode, uint8_t ed_tresh)
+{
+    mode = (mode > 3) ? 1 : mode; // 0 - 3 valid modes, default to 1
+    ed_tresh = (ed_tresh > 0x0f) ? 0x0f : ed_tresh; // max is 0x0f;
+    DEBUG("[ng_at86rf2xx] opt: Set CCA mode to %u", mode);
+    DEBUG("[ng_at86rf2xx] opt: Set ED threshold to %u", ed_tresh);
+
+    uint8_t tmp = ng_at86rf2xx_reg_read(dev, NG_AT86RF2XX_REG__PHY_CC_CCA);
+    tmp &= ~(NG_AT86RF2XX_PHY_CC_CCA_MASK__CCA_MODE);
+    tmp |= (mode << 5);
+    ng_at86rf2xx_reg_write(dev, NG_AT86RF2XX_REG__PHY_CC_CCA, tmp);
+
+    ng_at86rf2xx_reg_write(dev, NG_AT86RF2XX_REG__CCA_THRES, ed_tresh);
+}
+
 void ng_at86rf2xx_set_option(ng_at86rf2xx_t *dev, uint16_t option, bool state)
 {
     uint8_t tmp;

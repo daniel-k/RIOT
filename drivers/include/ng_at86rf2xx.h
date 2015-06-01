@@ -338,6 +338,23 @@ uint8_t ng_at86rf2xx_get_max_retries(ng_at86rf2xx_t *dev);
 void ng_at86rf2xx_set_max_retries(ng_at86rf2xx_t *dev, uint8_t max);
 
 /**
+ * @brief   Configure Clear Channel Assessment (CCA) mode
+ *
+ * Possible modes are (i.e. channel is not clear if):
+ *  - 0: Carrier sense OR energy above threshold
+ *  - 1: Energy above threshold
+ *  - 2: Carrier sense only
+ *  - 3: Carrier sense AND energy above threshold
+ *
+ * ED Threshold is calculated as follows: -94dBm + ( 2[dBm] x ed_thresh )
+ *
+ * @param[in] dev           device to write to
+ * @param[in] mode          CCA mode (0, 1, 2, 3)
+ * @param[in] ed_thresh     Threshold for energy detection
+ */
+void ng_at86rf2xx_set_cca_mode(ng_at86rf2xx_t *dev, uint8_t mode, uint8_t ed_tresh);
+
+/**
  * @brief   Enable or disable driver specific options
  *
  * @param[in] dev           device to set/clear option flag for
