@@ -20,6 +20,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include "board.h"
 #include "panic.h"
@@ -110,6 +111,52 @@ void nmi_default(void)
 
 void hard_fault_default(void)
 {
+/* Get additional crash information */
+#ifdef DEVELHELP
+    volatile unsigned int r0;
+    volatile unsigned int r1;
+    volatile unsigned int r2;
+    volatile unsigned int r3;
+    volatile unsigned int r12;
+    volatile unsigned int lr; /* Link register. */
+    volatile unsigned int pc; /* Program counter. */
+    volatile unsigned int psr;/* Program status register. */
+
+    /* Stackpointer of exception stackframe */
+    uint32_t* sp;
+
+    /* Get stackpointer where exception stackframe lies and store in sp */
+    __ASM volatile
+    (
+        "movs r0, #4                         \n" /* r0 = 0x4       */
+        "mov r1, lr                          \n" /* r1 = lr        */
+        "tst r1, r0                          \n" /* if(lr & 0x4)   */
+        "bne use_psp                         \n" /* {              */
+        "mrs r0, msp                         \n" /*   r0 = msp     */
+        "b out                               \n" /* }              */
+        " use_psp:                           \n" /* else {         */
+        "mrs r0, psp                         \n" /*   r0 = psp     */
+        " out:                               \n" /* }              */
+        "mov %[sp], r0                       \n" /* sp = r0        */
+        : [sp] "=r" (sp) : :
+    );
+
+    r0  = sp[0];
+    r1  = sp[1];
+    r2  = sp[2];
+    r3  = sp[3];
+    r12 = sp[4];
+    lr  = sp[5];
+    pc  = sp[6];
+    psr = sp[7];
+
+
+    puts("Registers before hardfault:");
+    /* TODO: printf in ISR context might be a bad idea */
+    printf("r0:  0x%x\nr2:  0x%x\nr3:  0x%x\nr3:  0x%x\n", r0, r1, r2, r3);
+    printf("r12: 0x%x\nlr : 0x%x\npc : 0x%x\npsr: 0x%x\n\n", r12, lr, pc, psr);
+#endif /* DEVELHELP */
+
     core_panic(PANIC_HARD_FAULT, "HARD FAULT HANDLER");
 }
 
