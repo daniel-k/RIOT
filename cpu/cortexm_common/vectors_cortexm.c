@@ -40,6 +40,8 @@ extern uint32_t _szero;
 extern uint32_t _ezero;
 extern uint32_t _sstack;
 extern uint32_t _estack;
+extern uint32_t _sram;
+extern uint32_t _eram;
 /** @} */
 
 /** @brief Interrupt stack canary value
@@ -109,10 +111,9 @@ void nmi_default(void)
     core_panic(PANIC_NMI_HANDLER, "NMI HANDLER");
 }
 
-void hard_fault_default(void)
+void hard_fault_handler(uint32_t* sp)
 {
-/* Get additional crash information */
-#ifdef DEVELHELP
+    /* Make them volatile so that they won't get optimized out */
     volatile unsigned int r0;
     volatile unsigned int r1;
     volatile unsigned int r2;
@@ -122,42 +123,47 @@ void hard_fault_default(void)
     volatile unsigned int pc; /* Program counter. */
     volatile unsigned int psr;/* Program status register. */
 
-    /* Stackpointer of exception stackframe */
-    uint32_t* sp;
+    /* Sanity check stackpointer and give additional feedback about hardfault */
+    if( (sp < &_sram) || (sp > &_eram) ) {
+        puts("Stackpointer corrupted");
+    } else {
+        r0  = sp[0];
+        r1  = sp[1];
+        r2  = sp[2];
+        r3  = sp[3];
+        r12 = sp[4];
+        lr  = sp[5];
+        pc  = sp[6];
+        psr = sp[7];
 
-    /* Get stackpointer where exception stackframe lies and store in sp */
-    __ASM volatile
-    (
-        "movs r0, #4                         \n" /* r0 = 0x4       */
-        "mov r1, lr                          \n" /* r1 = lr        */
-        "tst r1, r0                          \n" /* if(lr & 0x4)   */
-        "bne use_psp                         \n" /* {              */
-        "mrs r0, msp                         \n" /*   r0 = msp     */
-        "b out                               \n" /* }              */
-        " use_psp:                           \n" /* else {         */
-        "mrs r0, psp                         \n" /*   r0 = psp     */
-        " out:                               \n" /* }              */
-        "mov %[sp], r0                       \n" /* sp = r0        */
-        : [sp] "=r" (sp) : :
-    );
+        puts("\nContext before hardfault:");
 
-    r0  = sp[0];
-    r1  = sp[1];
-    r2  = sp[2];
-    r3  = sp[3];
-    r12 = sp[4];
-    lr  = sp[5];
-    pc  = sp[6];
-    psr = sp[7];
-
-
-    puts("Registers before hardfault:");
-    /* TODO: printf in ISR context might be a bad idea */
-    printf("r0:  0x%x\nr2:  0x%x\nr3:  0x%x\nr3:  0x%x\n", r0, r1, r2, r3);
-    printf("r12: 0x%x\nlr : 0x%x\npc : 0x%x\npsr: 0x%x\n\n", r12, lr, pc, psr);
-#endif /* DEVELHELP */
+        /* TODO: printf in ISR context might be a bad idea */
+        printf("r0:  0x%x\nr2:  0x%x\nr3:  0x%x\nr3:  0x%x\n", r0, r1, r2, r3);
+        printf("r12: 0x%x\nlr : 0x%x\npc : 0x%x\npsr: 0x%x\n\n", r12, lr, pc, psr);
+    }
 
     core_panic(PANIC_HARD_FAULT, "HARD FAULT HANDLER");
+}
+
+/* Trampoline function to save stackpointer before calling hardfault handler */
+void hard_fault_default(void)
+{
+    /* Get stackpointer where exception stackframe lies */
+    __ASM volatile
+    (
+        "movs r0, #4                         \n" /* r0 = 0x4                */
+        "mov r1, lr                          \n" /* r1 = lr                 */
+        "tst r1, r0                          \n" /* if(lr & 0x4)            */
+        "bne use_psp                         \n" /* {                       */
+        "mrs r0, msp                         \n" /*   r0 = msp              */
+        "b out                               \n" /* }                       */
+        " use_psp:                           \n" /* else {                  */
+        "mrs r0, psp                         \n" /*   r0 = psp              */
+        " out:                               \n" /* }                       */
+        "b hard_fault_handler                \n" /* hard_fault_handler(r0)  */
+        : : : "r0","r1"
+    );
 }
 
 #if defined(CPU_ARCH_CORTEX_M3) || defined(CPU_ARCH_CORTEX_M4) || \
