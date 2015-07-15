@@ -111,7 +111,7 @@ void nmi_default(void)
     core_panic(PANIC_NMI_HANDLER, "NMI HANDLER");
 }
 
-void hard_fault_handler(uint32_t* sp)
+void hard_fault_handler(uint32_t* sp, uint32_t corrupted)
 {
     /* Make them volatile so that they won't get optimized out */
     volatile unsigned int r0;
@@ -124,8 +124,8 @@ void hard_fault_handler(uint32_t* sp)
     volatile unsigned int psr;/* Program status register. */
 
     /* Sanity check stackpointer and give additional feedback about hardfault */
-    if( (sp < &_sram) || (sp > &_eram) ) {
-        puts("Stackpointer corrupted");
+    if( corrupted ) {
+        puts("Stackpointer corrupted, reset to top of stack");
     } else {
         r0  = sp[0];
         r1  = sp[1];
@@ -152,17 +152,33 @@ void hard_fault_default(void)
     /* Get stackpointer where exception stackframe lies */
     __ASM volatile
     (
-        "movs r0, #4                         \n" /* r0 = 0x4                */
-        "mov r1, lr                          \n" /* r1 = lr                 */
-        "tst r1, r0                          \n" /* if(lr & 0x4)            */
-        "bne use_psp                         \n" /* {                       */
-        "mrs r0, msp                         \n" /*   r0 = msp              */
-        "b out                               \n" /* }                       */
-        " use_psp:                           \n" /* else {                  */
-        "mrs r0, psp                         \n" /*   r0 = psp              */
-        " out:                               \n" /* }                       */
-        "b hard_fault_handler                \n" /* hard_fault_handler(r0)  */
-        : : : "r0","r1"
+        "movs r0, #4                        \n" /* r0 = 0x4                   */
+        "mov r1, lr                         \n" /* r1 = lr                    */
+        "tst r1, r0                         \n" /* if(lr & 0x4)               */
+        "bne use_psp                        \n" /* {                          */
+        "mrs r0, msp                        \n" /*   r0 = msp                 */
+        "b out                              \n" /* }                          */
+        " use_psp:                          \n" /* else {                     */
+        "mrs r0, psp                        \n" /*   r0 = psp                 */
+        " out:                              \n" /* }                          */
+        "mov r1, #0                         \n" /* corrupted = false          */
+        "cmp r0, sp                         \n" /* If msp is active stack-    */
+        "bne hardfault                      \n" /* pointer, check if valid so */
+        "cmp r0, %[eram]                    \n" /* so calling c-func works .  */
+        "bge fix_msp                        \n" /* if(r0 == msp) {            */
+        "cmn r0, %[sram]                    \n" /*   if( (r0 >= estack) ||    */
+        "bl hardfault                       \n" /*       (r0 <  sstack) ) {   */
+        " fix_msp:                          \n" /*     corrupted = true       */
+        "mov r0, %[estack]                  \n" /*     r0 = _estack           */
+        "mov sp, r0                         \n" /*     sp = _estack           */
+        "mov r1, #1                         \n" /*   }                        */
+        " hardfault:                        \n" /* }                          */
+        "b hard_fault_handler               \n" /* hard_fault_handler(r0)     */
+          :
+          : [sram]   "r" (&_sram),
+            [eram]   "r" (&_eram),
+            [estack] "r" (&_estack)
+          : "r0","r1"
     );
 }
 
