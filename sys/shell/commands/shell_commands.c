@@ -120,6 +120,10 @@ extern int _zep_init(int argc, char **argv);
 extern int _gnrc_rpl(int argc, char **argv);
 #endif
 
+#ifdef MODULE_AT30TSE75X
+extern int _at30tse75x_handler(int argc, char **argv);
+#endif
+
 const shell_command_t _shell_command_list[] = {
     {"reboot", "Reboot the node", _reboot_handler},
 #ifdef MODULE_CONFIG
@@ -197,6 +201,9 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_GNRC_RPL
     {"rpl", "rpl configuration tool [help|init|rm|root|show]", _gnrc_rpl },
+#endif
+#ifdef MODULE_AT30TSE75X
+    {"at30tse75x", "Test AT30TSE75X temperature sensor", _at30tse75x_handler},
 #endif
     {NULL, NULL, NULL}
 };

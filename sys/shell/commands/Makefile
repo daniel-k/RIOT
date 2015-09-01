@@ -56,6 +56,9 @@ endif
 ifneq (,$(filter gnrc_rpl,$(USEMODULE)))
     SRC += sc_gnrc_rpl.c
 endif
+ifneq (,$(filter at30tse75x,$(USEMODULE)))
+    SRC += sc_at30tse75x.c
+endif
 
 # TODO
 # Conditional building not possible at the moment due to
