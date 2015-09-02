@@ -1,6 +1,8 @@
 APPLICATION = driver_at30tse75x
 include ../Makefile.tests_common
 
+BOARD = samr21-xpro
+
 FEATURES_REQUIRED = periph_i2c
 
 USEMODULE += at30tse75x

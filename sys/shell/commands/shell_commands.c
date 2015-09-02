@@ -122,6 +122,7 @@ extern int _gnrc_rpl(int argc, char **argv);
 
 #ifdef MODULE_AT30TSE75X
 extern int _at30tse75x_handler(int argc, char **argv);
+extern int _at30tse75x_eeprom_handler(int argc, char **argv);
 #endif
 
 const shell_command_t _shell_command_list[] = {
@@ -204,6 +205,7 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_AT30TSE75X
     {"at30tse75x", "Test AT30TSE75X temperature sensor", _at30tse75x_handler},
+    {"at30tse75x_eeprom", "Test AT30TSE75X eeprom", _at30tse75x_eeprom_handler},
 #endif
     {NULL, NULL, NULL}
 };

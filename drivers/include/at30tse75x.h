@@ -36,8 +36,8 @@ extern "C" {
  * @name AT30TSE75x I2C addresses
  * @{
  */
-#define AT30TSE75X_TEMP_ADDR            (0x48)
-#define AT30TSE75X_EEPROM_ADDR          (0x50)
+#define AT30TSE75X_ADDR__TEMP           (0x48)
+#define AT30TSE75X_ADDR__EEPROM         (0x50)
 /** @} */
 
 /**
@@ -146,17 +146,36 @@ typedef enum {
 /** @} */
 
 /**
+ * @name EEPROM size in kilobit
+ * @{
+ */
+typedef enum {
+    AT30TSE75X_EEPROM_2KB = 256,
+    AT30TSE75X_EEPROM_4KB = 512,
+    AT30TSE75X_EEPROM_8KB = 1024
+} at30tse75x_eeprom_size_t;
+/** @} */
+
+/**
   * @brief   Device descriptor for a AT30TSE75x device
   * @{
   */
 typedef struct {
     i2c_t i2c;
-    uint8_t addr;
+    uint8_t addr_temp;
+    uint8_t addr_eeprom;
+    at30tse75x_eeprom_size_t eeprom_size;
 } at30tse75x_t;
 /** @} */
 
 /**
  * @brief   Initialize a AT30TSE75x device
+ *
+ * The address given here should only be the lowest 3 bit of the I2C address,
+ * i.e. the configurable address pins A2 A1 A0.
+ *
+ * Example:
+ * A2=1 A1=1 A0=0 => addr = 0x06
  *
  * @param[out] dev          device descriptor
  * @param[in] i2c           I2C bus the device is connected to
@@ -286,6 +305,14 @@ int at30tse75x_set_limit_high(at30tse75x_t* dev, int8_t t_high);
  * @return                  <0 on error
  */
 int at30tse75x_get_temperature(at30tse75x_t* dev, float* temperature);
+
+
+int at30tse75x_eeprom_init(at30tse75x_t* dev, uint8_t addr, at30tse75x_eeprom_size_t size);
+int at30tse75x_eeprom_read(at30tse75x_t* dev, uint16_t addr, uint8_t* data);
+int at30tse75x_eeprom_reads(at30tse75x_t* dev, uint16_t start_addr, uint8_t* data, uint16_t length);
+int at30tse75x_eeprom_write(at30tse75x_t* dev, uint16_t addr, uint8_t data);
+uint16_t at30tse75x_eeprom_size(at30tse75x_t* dev);
+
 
 #ifdef __cplusplus
 }
