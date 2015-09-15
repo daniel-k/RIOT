@@ -22,10 +22,40 @@
 
 #include "shell.h"
 
+#include "net/gnrc/tftp.h"
+#include "net/gnrc/netreg.h"
+#include "thread.h"
+
 extern int udp_cmd(int argc, char **argv);
+
+static int tftp(int argc, char **argv)
+{
+    (void) argv;
+
+    if (argc == 0) {
+        ipv6_addr_t ip;
+        const char *dst = "fe80::14b8:e5ff:feeb:75c";
+        uint16_t port = GNRC_TFTP_DEFAULT_SRC_PORT;
+        ipv6_addr_from_str(&ip, dst);
+        gnrc_tftp_test_connect(&ip, port);
+    } else if (argc == 1) {
+        gnrc_netreg_entry_t entry;
+        entry.next = NULL;
+        entry.pid = thread_getpid();
+        entry.demux_ctx = GNRC_TFTP_DEFAULT_SRC_PORT;
+
+        /* register our DNS response listener */
+        if (gnrc_netreg_register(GNRC_NETTYPE_UDP, &entry)) {
+            puts("error: tftp reg failed");
+        }
+    }
+
+    return 0;
+}
 
 static const shell_command_t shell_commands[] = {
     { "udp", "send data over UDP and listen on UDP ports", udp_cmd },
+    { "tftp", "TFTP test function", tftp },
     { NULL, NULL, NULL }
 };
 
@@ -36,6 +66,7 @@ int main(void)
     /* start shell */
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];
+
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
