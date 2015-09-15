@@ -28,17 +28,19 @@
 
 extern int udp_cmd(int argc, char **argv);
 
-static int tftp(int argc, char **argv)
+static int tftp_handle(int argc, char **argv)
 {
     (void) argv;
 
-    if (argc == 0) {
+    if (argc == 1) {
         ipv6_addr_t ip;
-        const char *dst = "fe80::14b8:e5ff:feeb:75c";
+        //const char *dst = "fdcb:61::1";
+        const char *dst = "fdcb:172:31::1:254";
+        //const char *dst = "fe80::407b:92ff:fe7b:dd88";
         uint16_t port = GNRC_TFTP_DEFAULT_SRC_PORT;
         ipv6_addr_from_str(&ip, dst);
         gnrc_tftp_test_connect(&ip, port);
-    } else if (argc == 1) {
+    } else if (argc == 2) {
         gnrc_netreg_entry_t entry;
         entry.next = NULL;
         entry.pid = thread_getpid();
@@ -55,7 +57,7 @@ static int tftp(int argc, char **argv)
 
 static const shell_command_t shell_commands[] = {
     { "udp", "send data over UDP and listen on UDP ports", udp_cmd },
-    { "tftp", "TFTP test function", tftp },
+    { "tftp", "TFTP test function", tftp_handle },
     { NULL, NULL, NULL }
 };
 
