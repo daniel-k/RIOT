@@ -45,8 +45,7 @@ tftp_option_t _tftp_options[] = {
         MODE(timeout),
 };
 
-int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
-{
+int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst) {
     if (!src || !dst) {
         /* TODO special condition: (find solution in: ctxt)
          *  - Or start
@@ -54,11 +53,9 @@ int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
          */
     }
 
-    switch (_tftp_parse_type(dst))
-    {
+    switch (_tftp_parse_type(dst)) {
     case TO_RRQ:
-    case TO_RWQ:
-    {
+    case TO_RWQ: {
         ctxt->op = _tftp_parse_type(dst);
         _tftp_parse_start(src, &(ctxt->file_name), &(ctxt->mode));
 
@@ -67,8 +64,7 @@ int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
         _tftp_create_error(dst, TE_UN_DEF, "");
     } break;
 
-    case TO_DATA:
-    {
+    case TO_DATA: {
         size_t len;
         uint8_t *data;
         uint16_t blk_nr;
@@ -80,8 +76,7 @@ int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
         _tftp_create_error(dst, TE_UN_DEF, "");
     } break;
 
-    case TO_ACK:
-    {
+    case TO_ACK: {
         uint16_t blk_nr;
 
         _tftp_parse_ack(src, &blk_nr);
@@ -98,8 +93,7 @@ int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
         //_tftp_create_data(dst, ++blk_nr, data, len);
     } break;
 
-    case TO_ERROR:
-    {
+    case TO_ERROR: {
         tftp_err_codes_t err;
         const char *err_msg;
 
@@ -108,8 +102,7 @@ int _tftp_state_processes(tftp_context_t *ctxt, uint8_t *src, uint8_t *dst)
         /* TODO inform the user that there is an error */
     } break;
 
-    case TO_OACK:
-    {
+    case TO_OACK: {
         /* TODO the options where accepted */
     } break;
     }
