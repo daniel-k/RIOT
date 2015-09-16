@@ -30,58 +30,31 @@
 #include <inttypes.h>
 #endif
 
-void gnrc_tftp_test_connect(ipv6_addr_t *addr, uint16_t port) {
+int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
+                          tftp_data_callback cb) {
+    tftp_context_t ctxt;
 
-    uint8_t packet[1028];
-
-    gnrc_pktsnip_t *payload, *udp, *ip;
-
-    int length = _tftp_create_start(packet, TO_RRQ, "welcome.txt", OCTET);
-
-    /* allocate payload */
-    payload = gnrc_pktbuf_add(NULL, packet, length, GNRC_NETTYPE_UNDEF);
-    if (payload == NULL) {
-        DEBUG("dns: error unable to copy data to packet buffer");
-        return;
+    /* prepare the context */
+    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RRQ) < 0) {
+        return -EINVAL;
     }
 
-    /* allocate UDP header, set source port := destination port */
-    network_uint16_t src_port, dst_port;
-    src_port.u16 = GNRC_TFTP_DEFAULT_SRC_PORT;
-    dst_port.u16 = port;
-    udp = gnrc_udp_hdr_build(payload, src_port.u8, sizeof(src_port),
-            dst_port.u8, sizeof(dst_port));
-    if (udp == NULL) {
-        DEBUG("dns: error unable to allocate UDP header");
-        gnrc_pktbuf_release(payload);
-        return;
-    }
-
-    /* allocate IPv6 header */
-    ip = gnrc_ipv6_hdr_build(udp, NULL, 0, addr->u8, sizeof(ipv6_addr_t));
-    if (ip == NULL) {
-        DEBUG("dns: error unable to allocate IPv6 header");
-        gnrc_pktbuf_release(udp);
-        return;
-    }
-
-    /* send packet */
-#if 1
-    if (!gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, ip)) {
-        DEBUG("dns: error unable to locate UDP thread");
-        gnrc_pktbuf_release(ip);
-        return;
-    }
-#else
-    if (!gnrc_netapi_send(6, ip)) {
-        DEBUG("dns: error unable to locate UDP thread");
-        gnrc_pktbuf_release(ip);
-        return;
-    }
-#endif
-
+    /* start the process */
+    return _tftp_do_client_transfer(&ctxt);
 }
 
+int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
+                           tftp_data_callback cb) {
+    tftp_context_t ctxt;
+
+    /* prepare the context */
+    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RWQ) < 0) {
+        return -EINVAL;
+    }
+
+    /* start the process */
+    return _tftp_do_client_transfer(&ctxt);
+}
 
 /**
  * @}
