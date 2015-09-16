@@ -19,6 +19,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "shell.h"
 
@@ -28,20 +29,23 @@
 
 extern int udp_cmd(int argc, char **argv);
 
+static int _tftp_data_cb(uint32_t offset, void *data, uint32_t data_len) {
+    char *c = (char*) data;
+
+    (void) offset;
+
+    return write(STDOUT_FILENO, c, data_len);
+}
+
 static int tftp_handle(int argc, char **argv)
 {
     (void) argv;
 
-
-
     if (argc == 2) {
         ipv6_addr_t ip;
-        //const char *dst = "fdcb:61::1";
-        //const char *dst = "fdcb:172:31::1:254";
-        //const char *dst = "fe80::407b:92ff:fe7b:dd88";
-        uint16_t port = GNRC_TFTP_DEFAULT_DST_PORT;
-        ipv6_addr_from_str(&ip, argv[1]);
-        gnrc_tftp_test_connect(&ip, port);
+        const char *dst = "fdcb:61::1";
+        ipv6_addr_from_str(&ip, dst);
+        gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
     } else if (argc == 1) {
         gnrc_netreg_entry_t entry;
         entry.next = NULL;
@@ -70,6 +74,11 @@ int main(void)
     /* start shell */
     puts("All up, running the shell now");
     char line_buf[SHELL_DEFAULT_BUFSIZE];
+
+    ipv6_addr_t ip;
+    const char *dst = "fdcb:61::1";
+    ipv6_addr_from_str(&ip, dst);
+    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
 
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 

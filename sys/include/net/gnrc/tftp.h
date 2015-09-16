@@ -46,23 +46,27 @@
 extern "C" {
 #endif
 
-#ifndef GNRC_TFTP_MAX_MTU
-#define GNRC_TFTP_MAX_MTU               (1280)
-#endif
-
 #ifndef GNRC_TFTP_MAX_FILENAME_LEN
-#define GNRC_TFTP_MAX_FILENAME_LEN      (64)
+#define GNRC_TFTP_MAX_FILENAME_LEN          (64)
 #endif
 
 #ifndef GNRC_TFTP_DEFAULT_SRC_PORT
-#define GNRC_TFTP_DEFAULT_SRC_PORT      (10690)
+#define GNRC_TFTP_DEFAULT_SRC_PORT          (10690)
 #endif
 
 #ifndef GNRC_TFTP_DEFAULT_DST_PORT
-#define GNRC_TFTP_DEFAULT_DST_PORT      (69)
+#define GNRC_TFTP_DEFAULT_DST_PORT          (69)
 #endif
 
-extern void gnrc_tftp_test_connect(ipv6_addr_t *addr, uint16_t port);
+#ifndef GNRC_TFTP_MAX_TRANSFER_UNIT
+#define GNRC_TFTP_MAX_TRANSFER_UNIT         (512)
+#endif
+
+typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len);
+
+extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
+
+extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
 
 #ifdef __cplusplus
 }
