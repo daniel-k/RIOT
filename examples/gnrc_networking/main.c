@@ -32,15 +32,17 @@ static int tftp_handle(int argc, char **argv)
 {
     (void) argv;
 
-    if (argc == 1) {
+
+
+    if (argc == 2) {
         ipv6_addr_t ip;
         //const char *dst = "fdcb:61::1";
-        const char *dst = "fdcb:172:31::1:254";
+        //const char *dst = "fdcb:172:31::1:254";
         //const char *dst = "fe80::407b:92ff:fe7b:dd88";
-        uint16_t port = GNRC_TFTP_DEFAULT_SRC_PORT;
-        ipv6_addr_from_str(&ip, dst);
+        uint16_t port = GNRC_TFTP_DEFAULT_DST_PORT;
+        ipv6_addr_from_str(&ip, argv[1]);
         gnrc_tftp_test_connect(&ip, port);
-    } else if (argc == 2) {
+    } else if (argc == 1) {
         gnrc_netreg_entry_t entry;
         entry.next = NULL;
         entry.pid = thread_getpid();
