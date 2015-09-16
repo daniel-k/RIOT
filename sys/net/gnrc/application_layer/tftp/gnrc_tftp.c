@@ -47,7 +47,7 @@ void gnrc_tftp_test_connect(ipv6_addr_t *addr, uint16_t port) {
 
     /* allocate UDP header, set source port := destination port */
     network_uint16_t src_port, dst_port;
-    src_port.u16 = GNRC_TFTP_DEFAULT_DST_PORT;
+    src_port.u16 = GNRC_TFTP_DEFAULT_SRC_PORT;
     dst_port.u16 = port;
     udp = gnrc_udp_hdr_build(payload, src_port.u8, sizeof(src_port),
             dst_port.u8, sizeof(dst_port));
@@ -66,7 +66,7 @@ void gnrc_tftp_test_connect(ipv6_addr_t *addr, uint16_t port) {
     }
 
     /* send packet */
-#if 0
+#if 1
     if (!gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, ip)) {
         DEBUG("dns: error unable to locate UDP thread");
         gnrc_pktbuf_release(ip);

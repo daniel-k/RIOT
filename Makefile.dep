@@ -28,7 +28,6 @@ ifneq (,$(filter gnrc_zep,$(USEMODULE)))
 endif
 
 ifneq (,$(filter gnrc_tftp_%,$(USEMODULE)))
-  USEMODULE += ieee802154
   USEMODULE += gnrc_udp
   USEMODULE += gnrc_tftp
   USEMODULE += vtimer
