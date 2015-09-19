@@ -1,5 +1,17 @@
+ifneq (,$(filter libcoap,$(USEPKG)))
+    USEMODULE += pnet
+endif
+
+ifneq (,$(filter pnet,$(USEMODULE)))
+    USEMODULE += vtimer
+endif
+
 ifneq (,$(filter gnrc_%,$(filter-out gnrc_netapi gnrc_netreg gnrc_netif% gnrc_pktbuf,$(USEMODULE))))
   USEMODULE += gnrc
+endif
+
+ifneq (,$(filter schedstatistics,$(USEMODULE)))
+  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter gnrc_netif_default,$(USEMODULE)))
@@ -9,14 +21,23 @@ endif
 ifneq (,$(filter at86rf2%,$(USEMODULE)))
   USEMODULE += at86rf2xx
   USEMODULE += ieee802154
+  USEMODULE += xtimer
+  USEMODULE += netif
 endif
 
 ifneq (,$(filter kw2xrf,$(USEMODULE)))
   USEMODULE += ieee802154
+  USEMODULE += netif
 endif
 
 ifneq (,$(filter xbee,$(USEMODULE)))
   USEMODULE += ieee802154
+  USEMODULE += xtimer
+  USEMODULE += netif
+endif
+
+ifneq (,$(filter netdev2_tap,$(USEMODULE)))
+  USEMODULE += netif
 endif
 
 ifneq (,$(filter gnrc_zep,$(USEMODULE)))
@@ -37,7 +58,11 @@ ifneq (,$(filter gnrc_rpl,$(USEMODULE)))
   USEMODULE += fib
   USEMODULE += gnrc_ipv6_router_default
   USEMODULE += trickle
-  USEMODULE += vtimer
+  USEMODULE += xtimer
+endif
+
+ifneq (,$(filter trickle,$(USEMODULE)))
+  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter ieee802154,$(USEMODULE)))
@@ -254,11 +279,8 @@ ifneq (,$(filter posix,$(USEMODULE)))
   USEMODULE += vtimer
 endif
 
-ifneq (,$(filter cbor,$(USEMODULE)))
-  USEMODULE += net_help
-endif
-
 ifneq (,$(filter vtimer,$(USEMODULE)))
+  USEMODULE += xtimer
   USEMODULE += timex
 endif
 
@@ -278,9 +300,7 @@ endif
 
 ifneq (,$(filter fib,$(USEMODULE)))
   USEMODULE += universal_address
-  USEMODULE += timex
-  USEMODULE += vtimer
-  USEMODULE += net_help
+  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter oonf_common,$(USEMODULE)))
@@ -326,14 +346,59 @@ ifneq (,$(filter gnrc_netdev2,$(USEMODULE)))
 endif
 
 ifneq (,$(filter hih6130,$(USEMODULE)))
-  USEMODULE += vtimer
+  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter encx24j600,$(USEMODULE)))
-  USEMODULE += timex
-  USEMODULE += vtimer
+  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter srf02,$(USEMODULE)))
   USEMODULE += xtimer
+endif
+
+ifneq (,$(filter dht,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter lm75a,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter mpu9150,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter sht11,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter srf02,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter pcd8544,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter nvram_spi,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter ltc4150,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter pthread,$(USEMODULE)))
+    USEMODULE += xtimer
+    USEMODULE += vtimer
+    USEMODULE += timex
+endif
+
+ifneq (,$(filter schedstatistics,$(USEMODULE)))
+    USEMODULE += xtimer
+endif
+
+ifneq (,$(filter xtimer,$(USEMODULE)))
+    FEATURES_REQUIRED += periph_timer
 endif

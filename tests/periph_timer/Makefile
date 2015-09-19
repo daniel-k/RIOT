@@ -1,6 +1,6 @@
-APPLICATION = hwtimer_wait
+export APPLICATION = periph_timer
 include ../Makefile.tests_common
 
-DISABLE_MODULE += auto_init
+FEATURES_REQUIRED = periph_timer
 
 include $(RIOTBASE)/Makefile.include

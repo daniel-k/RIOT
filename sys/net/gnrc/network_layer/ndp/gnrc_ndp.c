@@ -57,19 +57,29 @@ static void _stale_nc(kernel_pid_t iface, ipv6_addr_t *ipaddr, uint8_t *l2addr,
 #ifdef MODULE_GNRC_SIXLOWPAN_ND_ROUTER
             /* tentative type see https://tools.ietf.org/html/rfc6775#section-6.3 */
             gnrc_ipv6_netif_t *ipv6_iface = gnrc_ipv6_netif_get(iface);
-            if ((ipv6_iface == NULL) || (ipv6_iface->flags & GNRC_IPV6_NETIF_FLAGS_ROUTER)) {
+            if ((ipv6_iface->flags & GNRC_IPV6_NETIF_FLAGS_SIXLOWPAN) &&
+                (ipv6_iface->flags & GNRC_IPV6_NETIF_FLAGS_ROUTER)) {
                 timex_t t = { GNRC_SIXLOWPAN_ND_TENTATIVE_NCE_LIFETIME, 0 };
-                gnrc_ipv6_nc_add(iface, ipaddr, l2addr, (uint16_t)l2addr_len,
-                                 GNRC_IPV6_NC_STATE_STALE | GNRC_IPV6_NC_TYPE_TENTATIVE);
-                vtimer_remove(&nc_entry->type_timeout);
-                vtimer_set_msg(&nc_entry->type_timeout, t, gnrc_ipv6_pid,
-                               GNRC_SIXLOWPAN_ND_MSG_AR_TIMEOUT, nc_entry);
+                if ((nc_entry = gnrc_ipv6_nc_add(iface, ipaddr, l2addr,
+                                                 (uint16_t)l2addr_len,
+                                                 GNRC_IPV6_NC_STATE_STALE |
+                                                 GNRC_IPV6_NC_TYPE_TENTATIVE)) != NULL) {
+                    vtimer_remove(&nc_entry->type_timeout);
+                    vtimer_set_msg(&nc_entry->type_timeout, t, gnrc_ipv6_pid,
+                                   GNRC_SIXLOWPAN_ND_MSG_AR_TIMEOUT, nc_entry);
+                }
                 return;
             }
 #endif
             gnrc_ipv6_nc_add(iface, ipaddr, l2addr, (uint16_t)l2addr_len,
                              GNRC_IPV6_NC_STATE_STALE);
         }
+#ifdef MODULE_GNRC_SIXLOWPAN_ND_ROUTER
+        /* unreachable set in gnrc_ndp_retrans_nbr_sol() will just be staled */
+        else if (gnrc_ipv6_nc_get_state(nc_entry) == GNRC_IPV6_NC_STATE_UNREACHABLE) {
+            gnrc_ndp_internal_set_state(nc_entry, GNRC_IPV6_NC_STATE_STALE);
+        }
+#endif
         else if (((uint16_t)l2addr_len != nc_entry->l2_addr_len) ||
                  (memcmp(l2addr, nc_entry->l2_addr, l2addr_len) != 0)) {
             /* if entry exists but l2 address differs: set */
@@ -414,6 +424,17 @@ void gnrc_ndp_rtr_sol_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt,
 #endif
             delay = timex_set(0, genrand_uint32_range(0, ms));
             vtimer_remove(&if_entry->rtr_adv_timer);
+#ifdef MODULE_GNRC_SIXLOWPAN_ND_ROUTER
+            /* in case of a 6LBR we have to check if the interface is actually
+             * the 6lo interface */
+            if (if_entry->flags & GNRC_IPV6_NETIF_FLAGS_SIXLOWPAN) {
+                gnrc_ipv6_nc_t *nc_entry = gnrc_ipv6_nc_get(iface, &ipv6->src);
+                if (nc_entry != NULL) {
+                    vtimer_set_msg(&if_entry->rtr_adv_timer, delay, gnrc_ipv6_pid,
+                            GNRC_NDP_MSG_RTR_ADV_SIXLOWPAN_DELAY, nc_entry);
+                }
+            }
+#elif defined(MODULE_GNRC_NDP_ROUTER) || defined(MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER)
             if (ipv6_addr_is_unspecified(&ipv6->src)) {
                 /* either multicast, if source unspecified */
                 vtimer_set_msg(&if_entry->rtr_adv_timer, delay, gnrc_ipv6_pid,
@@ -427,6 +448,7 @@ void gnrc_ndp_rtr_sol_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt,
                 vtimer_set_msg(&if_entry->rtr_adv_timer, delay, gnrc_ipv6_pid,
                                GNRC_NDP_MSG_RTR_ADV_DELAY, nc_entry);
             }
+#endif
         }
     }
     /* otherwise ignore silently */
@@ -575,15 +597,14 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
         }
 #endif
     }
-#if ENABLE_DEBUG && defined(MODULE_NG_SIXLOWPAN_ND)
+#if ENABLE_DEBUG && defined(MODULE_GNRC_SIXLOWPAN_ND)
     if ((if_entry->flags & GNRC_IPV6_NETIF_FLAGS_SIXLOWPAN) && (l2src_len <= 0)) {
         DEBUG("ndp: Router advertisement did not contain any source address information\n");
     }
 #endif
     _stale_nc(iface, &ipv6->src, l2src, l2src_len);
-#ifdef MODULE_NG_SIXLOWPAN_ND
+#ifdef MODULE_GNRC_SIXLOWPAN_ND
     if (if_entry->flags & GNRC_IPV6_NETIF_FLAGS_SIXLOWPAN) {
-        timex_t t = { 0, GNRC_NDP_RETRANS_TIMER };
         /* stop multicast router solicitation retransmission timer */
         vtimer_remove(&if_entry->rtr_sol_timer);
         /* 3/4 of the time should be "well before" enough the respective timeout
@@ -594,12 +615,10 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
          * "In all cases, the RS retransmissions are terminated when an RA is
          *  received."
          *  Hence, reset router solicitation counter and reset timer. */
-        &nc_entry->rtr_sol_count = 0;
+        if_entry->rtr_sol_count = 0;
         gnrc_sixlowpan_nd_rtr_sol_reschedule(nc_entry, next_rtr_sol);
-        gnrc_ndp_internal_send_nbr_sol(ifs[i], &nc_entry->ipv6_addr, &nc_entry->ipv6_addr);
-        vtimer_remove(&nc_entry->nbr_sol_timer);
-        vtimer_set_msg(&nc_entry->nbr_sol_timer, t, gnrc_ipv6_pid, GNRC_NDP_MSG_NBR_SOL_RETRANS,
-                       nc_entry);
+        gnrc_ndp_internal_send_nbr_sol(nc_entry->iface, NULL, &nc_entry->ipv6_addr,
+                                       &nc_entry->ipv6_addr);
     }
 #endif
 }
@@ -631,7 +650,7 @@ void gnrc_ndp_retrans_nbr_sol(gnrc_ipv6_nc_t *nc_entry)
                 size_t ifnum = gnrc_netif_get(ifs);
 
                 for (size_t i = 0; i < ifnum; i++) {
-                    gnrc_ndp_internal_send_nbr_sol(ifs[i], &nc_entry->ipv6_addr, &dst);
+                    gnrc_ndp_internal_send_nbr_sol(ifs[i], NULL, &nc_entry->ipv6_addr, &dst);
                 }
 
                 vtimer_remove(&nc_entry->nbr_sol_timer);
@@ -641,7 +660,7 @@ void gnrc_ndp_retrans_nbr_sol(gnrc_ipv6_nc_t *nc_entry)
             else {
                 gnrc_ipv6_netif_t *ipv6_iface = gnrc_ipv6_netif_get(nc_entry->iface);
 
-                gnrc_ndp_internal_send_nbr_sol(nc_entry->iface, &nc_entry->ipv6_addr, &dst);
+                gnrc_ndp_internal_send_nbr_sol(nc_entry->iface, NULL, &nc_entry->ipv6_addr, &dst);
 
                 mutex_lock(&ipv6_iface->mutex);
                 vtimer_remove(&nc_entry->nbr_sol_timer);
@@ -660,6 +679,7 @@ void gnrc_ndp_retrans_nbr_sol(gnrc_ipv6_nc_t *nc_entry)
                     (gnrc_ipv6_nc_get_type(nc_entry) != GNRC_IPV6_NC_TYPE_GC)) {
                     /* don't remove non-gc entrys on 6LRs:
                      * https://tools.ietf.org/html/rfc6775#section-6 */
+                    gnrc_ndp_internal_set_state(nc_entry, GNRC_IPV6_NC_STATE_UNREACHABLE);
                     return;
                 }
             }
