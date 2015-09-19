@@ -97,9 +97,15 @@ typedef enum {
  */
 typedef enum {
     TOPT_BLKSIZE,
+    TOPT_TIMEOUT,
     TOPT_TSIZE,
-    TOPT_TIMEOUT
 } tftp_options_t;
+
+typedef enum {
+    FAILED      = -1,
+    BUSY        = 0,
+    FINISHED    = 1
+} tftp_state;
 
 /**
  * @brief The TFTP context for the current transfer
@@ -118,7 +124,7 @@ typedef struct {
     /* transfer parameters */
     uint16_t block_nr;
     uint16_t block_size;
-    uint16_t transfer_size;
+    uint32_t transfer_size;
     uint16_t block_timeout;
 } tftp_context_t;
 
@@ -156,24 +162,24 @@ extern int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
                            tftp_data_callback cb, tftp_context_t *ctxt,
                            tftp_opcodes_t op);
 
+extern int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_t total_size);
+
 extern int _tftp_do_client_transfer(tftp_context_t *ctxt);
 
-extern int _tftp_state_processes(tftp_context_t *ctxt, msg_t *m);
+extern tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m);
 
 extern gnrc_pktsnip_t* _tftp_build_packet(gnrc_pktsnip_t *payload,
                                           ipv6_addr_t *addr, uint16_t port);
 
-extern int _tftp_send(gnrc_pktsnip_t *payload, tftp_context_t *ctxt, size_t len);
+extern tftp_state _tftp_send(gnrc_pktsnip_t *payload, tftp_context_t *ctxt, size_t len);
 
-extern int _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
+extern tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
 
-extern int _tftp_send_ack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
+extern tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcodes_t op);
 
-extern int _tftp_send_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
+extern tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
 
-extern int _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
-
-extern int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
+extern int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t start);
 
 extern int _tftp_decode_start(uint8_t *buf, char **file_name, tftp_mode_t *mode);
 

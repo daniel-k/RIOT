@@ -18,8 +18,9 @@
  * @}
  */
 
-#include <stdio.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "shell.h"
 
@@ -27,6 +28,7 @@
 #include "net/gnrc/netreg.h"
 #include "thread.h"
 
+extern ssize_t write(int fildes, const void *buf, size_t nbyte);
 extern int udp_cmd(int argc, char **argv);
 
 static int _tftp_data_cb(uint32_t offset, void *data, uint32_t data_len) {
@@ -43,7 +45,7 @@ static int tftp_handle(int argc, char **argv)
 
     if (argc == 2) {
         ipv6_addr_t ip;
-        const char *dst = "fdcb:61::1";
+        const char *dst = "fe80::c034:39ff:feae:8949";
         ipv6_addr_from_str(&ip, dst);
         gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
     } else if (argc == 1) {
@@ -76,7 +78,7 @@ int main(void)
     char line_buf[SHELL_DEFAULT_BUFSIZE];
 
     ipv6_addr_t ip;
-    const char *dst = "fdcb:61::1";
+    const char *dst = "fe80::c034:39ff:feae:8949";
     ipv6_addr_from_str(&ip, dst);
     gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
 

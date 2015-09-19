@@ -66,7 +66,7 @@ typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len
 
 extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
 
-extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
+extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb, uint32_t total_size);
 
 #ifdef __cplusplus
 }
