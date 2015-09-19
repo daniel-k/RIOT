@@ -35,7 +35,12 @@ int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
     tftp_context_t ctxt;
 
     /* prepare the context */
-    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RRQ) < 0) {
+    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RRQ) != FINISHED) {
+        return -EINVAL;
+    }
+
+    /* set the transfer options */
+    if (_tftp_set_opts(&ctxt, 10, 1, 0) != FINISHED) {
         return -EINVAL;
     }
 
@@ -44,11 +49,16 @@ int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
 }
 
 int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
-                           tftp_data_callback cb) {
+                           tftp_data_callback cb, uint32_t total_size) {
     tftp_context_t ctxt;
 
     /* prepare the context */
     if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RWQ) < 0) {
+        return -EINVAL;
+    }
+
+    /* set the transfer options */
+    if (_tftp_set_opts(&ctxt, 10, 1, total_size) != FINISHED) {
         return -EINVAL;
     }
 
