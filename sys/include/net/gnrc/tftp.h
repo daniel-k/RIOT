@@ -66,16 +66,34 @@ extern "C" {
 #define GNRC_TFTP_MAX_TRANSFER_UNIT         (512)
 #endif
 
+typedef enum {
+    TFTP_READ,
+    TFTP_WRITE
+} tftp_action_t;
+
 /**
  * @brief   callback define which is called when a new server request is placed
  *          or when an client read request is made and the data length option is received
  */
-typedef bool (*tftp_transfer_start_callback)(const char *file_name, uint32_t data_len);
+typedef bool (*tftp_transfer_start_callback)(tftp_action_t action, const char *file_name, uint32_t data_len);
 
 /**
  * @brief   callback define which is called to get or set data from/to the user application
  */
 typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len);
+
+/**
+ * @brief Start an TFTP client read action from the given destination
+ *
+ * @param [in] addr         the address of the server
+ * @param [in] file_name    the filename of the file to get
+ * @param [in] data_cb      the callback which is called for each read data block
+ * @param [in] start_cb     the callback which is called if the server returns the transfer_size option
+ *
+ * @return 1 on success
+ * @return -1 on failure
+ */
+extern int gnrc_tftp_server(tftp_data_callback data_cb, tftp_transfer_start_callback start_cb);
 
 /**
  * @brief Start an TFTP client read action from the given destination
@@ -95,7 +113,8 @@ extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_
  *
  * @param [in] addr         the address of the server
  * @param [in] file_name    the filename of the file to write
- * @param [in] cb           the callback which is called to store the received block
+ * @param [in] data_cb      the callback which is called to store the received block
+ * @param [in] total_size   the total size of the transfer
  *
  * @return 1 on success
  * @return -1 on failure

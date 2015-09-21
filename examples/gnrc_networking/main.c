@@ -41,8 +41,8 @@ static int _tftp_data_cb(uint32_t offset, void *data, uint32_t data_len) {
     return write(STDOUT_FILENO, c, data_len);
 }
 
-static bool _tftp_start_cb(const char *file_name, size_t len) {
-    printf("tftp: reading %s:%u\n", file_name, len);
+static bool _tftp_start_cb(tftp_action_t action, const char *file_name, size_t len) {
+    printf("tftp: %s %s:%u\n", action == TFTP_READ ? "read" : "write", file_name, len);
 
     return true;
 }
