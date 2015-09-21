@@ -50,6 +50,10 @@ extern "C" {
 #define GNRC_TFTP_MAX_FILENAME_LEN          (64)
 #endif
 
+#ifndef GNRC_TFTP_MAX_SERVER_CLIENTS
+#define GNRC_TFTP_MAX_SERVER_CLIENTS        (2)
+#endif
+
 #ifndef GNRC_TFTP_DEFAULT_SRC_PORT
 #define GNRC_TFTP_DEFAULT_SRC_PORT          (10690)
 #endif
@@ -62,10 +66,34 @@ extern "C" {
 #define GNRC_TFTP_MAX_TRANSFER_UNIT         (512)
 #endif
 
+/**
+ * @brief Callback define to
+ */
+typedef bool (*tftp_transfer_start_callback)(const char *file_name, uint32_t data_len);
 typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len);
 
+/**
+ * @brief Start an TFTP client read action from the given destination
+ *
+ * @param [in] addr         the address of the server
+ * @param [in] file_name    the filename of the file to get
+ * @param [in] cb           the callback which is called for each read data block
+ *
+ * @return 1 on success
+ * @return -1 on failure
+ */
 extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
 
+/**
+ * @brief Start an TFTP client write action to the given destination
+ *
+ * @param [in] addr         the address of the server
+ * @param [in] file_name    the filename of the file to write
+ * @param [in] cb           the callback which is called to store the received block
+ *
+ * @return 1 on success
+ * @return -1 on failure
+ */
 extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb, uint32_t total_size);
 
 #ifdef __cplusplus

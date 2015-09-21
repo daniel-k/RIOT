@@ -34,25 +34,37 @@
 #include <inttypes.h>
 #endif
 
-#define ENABLE_TFTP_ERROR_SEND                 0
-
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define CT_HTONS(x)         ((          \
-                   (x >> 8) & 0x00FF) | \
-                   ((x << 8) & 0xFF00))
+#define CT_HTONS(x)                 ((          \
+                           (x >> 8) & 0x00FF) | \
+                           ((x << 8) & 0xFF00))
 
-#define CT_HTONL(x)         ((          \
-              (x >> 24) & 0x000000FF) | \
-              ((x >> 8) & 0x0000FF00) | \
-              ((x << 8) & 0x00FF0000) | \
-              ((x << 24) & 0xFF000000))
+#define CT_HTONL(x)                 ((          \
+                      (x >> 24) & 0x000000FF) | \
+                      ((x >> 8) & 0x0000FF00) | \
+                      ((x << 8) & 0x00FF0000) | \
+                      ((x << 24) & 0xFF000000))
 #else
-#define CT_HTONS(x)    (x)
-#define CT_HTONL(x)    (x)
+#define CT_HTONS(x)                 (x)
+#define CT_HTONL(x)                 (x)
 #endif
 
-#define MIN(a,b)            ((a) > (b) ? (b) : (a))
-#define ARRAY_LEN(x)        (sizeof(x) / sizeof(x[0]))
+#define MIN(a,b)                    ((a) > (b) ? (b) : (a))
+#define ARRAY_LEN(x)                (sizeof(x) / sizeof(x[0]))
+
+#define TFTP_TIMEOUT_MSG            0x4000
+#define TFTP_DEFAULT_DATA_SIZE      (GNRC_TFTP_MAX_TRANSFER_UNIT    \
+                                        + sizeof(tftp_packet_data_t))
+
+/**
+ * @brief TFTP mode help support
+ */
+#define MODE(mode)                  { #mode, sizeof(#mode) }
+
+typedef struct {
+    char *name;
+    uint8_t len;
+} tftp_opt_t;
 
 /**
  * @brief TFTP opcodes
@@ -89,6 +101,13 @@ typedef enum {
     MAIL
 } tftp_mode_t;
 
+/* ordered as @see tftp_mode_t */
+tftp_opt_t _tftp_modes[] = {
+        MODE(netascii),
+        MODE(octet),
+        MODE(mail),
+};
+
 /**
  * @brief TFTP Options
  */
@@ -98,6 +117,16 @@ typedef enum {
     TOPT_TSIZE,
 } tftp_options_t;
 
+/* ordered as @see tftp_options_t */
+tftp_opt_t _tftp_options[] = {
+        MODE(blksize),
+        MODE(timeout),
+        MODE(tsize),
+};
+
+/**
+ * @brief The TFTP state
+ */
 typedef enum {
     FAILED      = -1,
     BUSY        = 0,
@@ -108,7 +137,8 @@ typedef enum {
  * @brief The TFTP context for the current transfer
  */
 typedef struct {
-    const char *file_name; /* TODO [GNRC_TFTP_MAX_FILENAME_LEN]; */
+    char full_file_name[GNRC_TFTP_MAX_FILENAME_LEN];
+    //const char *file_name;
     tftp_mode_t mode;
     tftp_opcodes_t op;
     ipv6_addr_t *peer;
@@ -116,13 +146,14 @@ typedef struct {
     uint32_t timeout;
     uint16_t dst_port;
     uint16_t src_port;
-    tftp_data_callback cb;
+    tftp_transfer_start_callback start_cb;
+    tftp_data_callback data_cb;
 
     /* transfer parameters */
     uint16_t block_nr;
     uint16_t block_size;
     uint32_t transfer_size;
-    uint16_t block_timeout;
+    uint32_t block_timeout;
     bool use_options;
 } tftp_context_t;
 
@@ -139,12 +170,12 @@ typedef struct __attribute__((packed)) {
  */
 typedef struct __attribute__((packed)) {
     tftp_opcodes_t opc          : 16;
-    uint16_t block_nr;
+    network_uint16_t block_nr;
     uint8_t data[];
 } tftp_packet_data_t;
 
 /**
- * @brief The TFTP ACK packet
+ * @brief The TFTP error packet
  */
 typedef struct __attribute__((packed)) {
     tftp_opcodes_t opc          : 16;
@@ -152,82 +183,83 @@ typedef struct __attribute__((packed)) {
     char err_msg[];
 } tftp_packet_error_t;
 
+/* get the TFTP opcode */
 static inline tftp_opcodes_t _tftp_parse_type(uint8_t *buf) {
     return ((tftp_header_t*)buf)->opc;
 }
 
+/* initialize the context to it's default state */
 static int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
-                           tftp_data_callback cb, tftp_context_t *ctxt,
-                           tftp_opcodes_t op);
+                           tftp_transfer_start_callback start_cb,
+                           tftp_data_callback data_cb, tftp_opcodes_t op,
+                           tftp_context_t *ctxt);
 
+/* set the TFTP options to use */
 static int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_t total_size);
 
+/* this function registers the UDP port and won't return till the TFTP transfer is finished */
 static int _tftp_do_client_transfer(tftp_context_t *ctxt);
 
+/* the state process of the TFTP transfer */
 static tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m);
 
-static tftp_state _tftp_send(gnrc_pktsnip_t *payload, tftp_context_t *ctxt, size_t len);
-
+/* send an start request if we run in client mode */
 static tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
 
+/* send data or and ack depending if we are reading or writing */
 static tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcodes_t op);
 
 #if ENABLE_TFTP_ERROR_SEND
+/* send and TFTP error to the client */
 static tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
 #endif
 
+/* this function sends the actual packet */
+static tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len);
+
+/* decode the default TFTP start packet */
+static int _tftp_decode_start(tftp_context_t *ctxt, uint8_t *buf, gnrc_pktsnip_t *outbuf);
+
+/* decode the TFTP option extensions */
 static  int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t start);
 
-static int _tftp_decode_start(uint8_t *buf, const char **file_name, tftp_mode_t *mode);
-
+/* decode the received ACK packet */
 static bool _tftp_validate_ack(tftp_context_t *ctxt, uint8_t *buf);
 
+/* processes the received data packet and calls the callback defined by the user */
 static int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
 
+/* decode the received error packet and calls the callback defined by the user */
 static int _tftp_decode_error(uint8_t *buf, tftp_err_codes_t *err, const char **err_msg);
 
-#define TFTP_TIMEOUT_MSG            0x4000
-#define TFTP_DEFAULT_DATA_SIZE      (GNRC_TFTP_MAX_TRANSFER_UNIT    \
-                                        + sizeof(tftp_packet_data_t))
-#define MSG(s)                      #s, sizeof(#s)
+/* get the maximum allowed transfer unit to avoid 6Lo fragmentation */
+static uint16_t _tftp_get_maximum_block_size(void) {
+    uint16_t tmp;
+    kernel_pid_t ifs[GNRC_NETIF_NUMOF];
+    size_t ifnum = gnrc_netif_get(ifs);
 
-/**
- * @brief TFTP mode help support
- */
-#define MODE(mode)                  { #mode, sizeof(#mode) }
+    return 10;
 
-typedef struct {
-    char *name;
-    uint8_t len;
-} tftp_opt_t;
+    if (ifnum > 0 && gnrc_netapi_get(ifs[0], NETOPT_MAX_PACKET_SIZE, 0, &tmp, sizeof(uint16_t)) >= 0) {
+        /* TODO calculate proper block size */
+        return tmp - sizeof(udp_hdr_t) - sizeof(ipv6_hdr_t) - 50;
+    }
 
-/* ordered as @see tftp_mode_t */
-tftp_opt_t _tftp_modes[] = {
-        MODE(netascii),
-        MODE(octet),
-        MODE(mail),
-};
-
-/* ordered as @see tftp_options_t */
-tftp_opt_t _tftp_options[] = {
-        MODE(blksize),
-        MODE(timeout),
-        MODE(tsize),
-};
-
-#define INT_DIGITS 6
+    return GNRC_TFTP_MAX_TRANSFER_UNIT;
+}
 
 int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
-                          tftp_data_callback cb) {
+                          tftp_data_callback data_cb) {
     tftp_context_t ctxt;
 
     /* prepare the context */
-    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RRQ) != FINISHED) {
+    if (_tftp_init_ctxt(addr, file_name, NULL, data_cb, TO_RRQ, &ctxt) != FINISHED) {
         return -EINVAL;
     }
 
     /* set the transfer options */
-    if (_tftp_set_opts(&ctxt, 10, 1, 0) != FINISHED) {
+    uint16_t mtu = _tftp_get_maximum_block_size();
+    if (_tftp_set_opts(&ctxt, mtu, 1, 0) != FINISHED) {
         return -EINVAL;
     }
 
@@ -236,16 +268,17 @@ int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
 }
 
 int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
-                           tftp_data_callback cb, uint32_t total_size) {
+                           tftp_data_callback data_cb, uint32_t total_size) {
     tftp_context_t ctxt;
 
     /* prepare the context */
-    if (_tftp_init_ctxt(addr, file_name, cb, &ctxt, TO_RWQ) < 0) {
+    if (_tftp_init_ctxt(addr, file_name, NULL, data_cb, TO_RWQ, &ctxt) < 0) {
         return -EINVAL;
     }
 
     /* set the transfer options */
-    if (_tftp_set_opts(&ctxt, 10, 1, total_size) != FINISHED) {
+    uint16_t mtu = _tftp_get_maximum_block_size();
+    if (_tftp_set_opts(&ctxt, mtu, 1, total_size) != FINISHED) {
         return -EINVAL;
     }
 
@@ -253,6 +286,7 @@ int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
     return _tftp_do_client_transfer(&ctxt);
 }
 
+#define INT_DIGITS 6
 char *itoa(int i, size_t *len)
 {
   /* Room for INT_DIGITS digits, - and '\0' */
@@ -269,12 +303,14 @@ char *itoa(int i, size_t *len)
 
   return NULL;
 }
+#undef INT_DIGITS
 
 int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
-                    tftp_data_callback cb, tftp_context_t *ctxt,
-                    tftp_opcodes_t op) {
+                    tftp_transfer_start_callback start_cb,
+                    tftp_data_callback data_cb, tftp_opcodes_t op,
+                    tftp_context_t *ctxt) {
 
-    if (!addr || !file_name || !cb) {
+    if (!addr || !data_cb) {
         return FAILED;
     }
 
@@ -282,15 +318,17 @@ int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
 
     /* set the default context parameters */
     ctxt->op = op;
-    ctxt->cb = cb;
     ctxt->peer = addr;
     ctxt->mode = OCTET;
-    ctxt->file_name = file_name;
+    ctxt->data_cb = data_cb;
+    ctxt->start_cb = start_cb;
+    strncpy(ctxt->full_file_name, file_name, GNRC_TFTP_MAX_FILENAME_LEN);
+    ctxt->full_file_name[GNRC_TFTP_MAX_FILENAME_LEN - 1] = 0;
     ctxt->dst_port = GNRC_TFTP_DEFAULT_DST_PORT;
 
     /* transport layer parameters */
-    ctxt->block_size = 10;
-    ctxt->block_timeout = 10;
+    ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
+    ctxt->block_timeout = 1;
 
     /* generate a random source UDP source port */
     do {
@@ -300,6 +338,13 @@ int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
     return FINISHED;
 }
 
+void _tftp_set_default_options(tftp_context_t *ctxt) {
+    ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
+    ctxt->timeout = 1;
+    ctxt->transfer_size = 0;
+    ctxt->use_options = false;
+}
+
 int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_t total_size) {
     if (blksize > GNRC_TFTP_MAX_TRANSFER_UNIT || !timeout) {
         return FAILED;
@@ -307,6 +352,7 @@ int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_
 
     ctxt->block_size = blksize;
     ctxt->timeout = timeout;
+    ctxt->block_timeout = timeout;
     ctxt->transfer_size = total_size;
     ctxt->use_options = true;
 
@@ -369,61 +415,6 @@ int _tftp_do_client_transfer(tftp_context_t *ctxt) {
     return ret;
 }
 
-tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
-    network_uint16_t src_port, dst_port;
-    gnrc_pktsnip_t *udp, *ip;
-
-    if (len > TFTP_DEFAULT_DATA_SIZE) {
-        DEBUG("tftp: can't reallocate to bigger packet, buffer overflowed");
-        return FAILED;
-    }
-    else if (gnrc_pktbuf_realloc_data(buf, len) != 0) {
-        DEBUG("tftp: failed to reallocate data snippet");
-        return FAILED;
-    }
-
-    /* allocate UDP header, set source port := destination port */
-    src_port.u16 = ctxt->src_port;
-    dst_port.u16 = ctxt->dst_port;
-    udp = gnrc_udp_hdr_build(buf, src_port.u8, sizeof(src_port),
-            dst_port.u8, sizeof(dst_port));
-    if (udp == NULL) {
-        DEBUG("dns: error unable to allocate UDP header");
-        gnrc_pktbuf_release(buf);
-        return FAILED;
-    }
-
-    /* allocate IPv6 header */
-    ip = gnrc_ipv6_hdr_build(udp, NULL, 0, ctxt->peer->u8, sizeof(ipv6_addr_t));
-    if (ip == NULL) {
-        DEBUG("dns: error unable to allocate IPv6 header");
-        gnrc_pktbuf_release(udp);
-        return FAILED;
-    }
-
-    /* send packet */
-    if (gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL,
-                                  ip) == 0) {
-        /* if send failed inform the user */
-        DEBUG("dns: error unable to locate UDP thread");
-        gnrc_pktbuf_release(ip);
-        return FAILED;
-    }
-
-#if 0
-    vtimer_set_msg(&(ctxt->timer), timex_set(ctxt->timeout, 0), thread_getpid(),
-                    TFTP_TIMEOUT_MSG, NULL);
-#endif
-
-    return BUSY;
-}
-
-void _tftp_set_default_options(tftp_context_t *ctxt) {
-    ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
-    ctxt->timeout = 1;
-    ctxt->transfer_size = 0;
-}
-
 tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     gnrc_pktsnip_t *outbuf = gnrc_pktbuf_add(NULL, NULL, TFTP_DEFAULT_DATA_SIZE,
                                              GNRC_NETTYPE_UNDEF);
@@ -433,6 +424,9 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         return _tftp_send_start(ctxt, outbuf);
     }
     else if (m->type == TFTP_TIMEOUT_MSG) {
+        /* increase the timeout for congestion control */
+        ctxt->block_timeout <<= 1;
+
         /* the send message timed out, re-sending */
         if (ctxt->dst_port == GNRC_TFTP_DEFAULT_DST_PORT) {
             /* we are still negotiating resent, start */
@@ -471,17 +465,16 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         /* get the context of the client */
         ctxt->dst_port = byteorder_ntohs(hdr->src_port);
         ctxt->op = _tftp_parse_type(data);
-        int offset = _tftp_decode_start(data, &(ctxt->file_name), &(ctxt->mode));
+        int offset = _tftp_decode_start(ctxt, data, outbuf);
         if (offset < 0) {
             return FAILED;
         }
 
         /* TODO validate if the application accepts the filename and modes */
-        /* if (ctxt->start_callback(ctxt->file_name, ctxt->mode) != 0) {
-         *     tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
-         *     return FAILED;
-         * }
-         */
+        if (ctxt->start_cb(ctxt->full_file_name, ctxt->mode) != 0) {
+            //tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
+            return FAILED;
+        }
 
         /* decode the options */
         if (_tftp_decode_options(ctxt, pkt, offset) > offset) {
@@ -504,7 +497,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         }
 
         /* check if this is the first block */
-        if (!ctxt->block_nr) {
+        if (!ctxt->block_nr && ctxt->dst_port == GNRC_TFTP_DEFAULT_DST_PORT) {
             /* no OACK received, restore default TFTP parameters */
             _tftp_set_default_options(ctxt);
 
@@ -595,13 +588,13 @@ size_t _tftp_add_option(uint8_t *dst, tftp_opt_t *opt, uint32_t value) {
 tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf)
 {
     /* get required values */
-    int len = strlen(ctxt->file_name) + 1;          /* we also want the \0 char */
+    int len = strlen(ctxt->full_file_name) + 1;          /* we also want the \0 char */
     tftp_opt_t *m = _tftp_modes + ctxt->mode;
 
     /* start filling the header */
     tftp_header_t *hdr = (tftp_header_t*)(buf->data);
     hdr->opc = ctxt->op;
-    memcpy(hdr->data, ctxt->file_name, len);
+    memcpy(hdr->data, ctxt->full_file_name, len);
     memcpy(hdr->data + len, m->name, m->len);
 
     /* fill the options */
@@ -624,19 +617,18 @@ tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcod
 
     /* fill the packet */
     tftp_packet_data_t *pkt = (tftp_packet_data_t*)(buf->data);
-    pkt->block_nr = HTONS(ctxt->block_nr);
+    pkt->block_nr = byteorder_htons(ctxt->block_nr);
     pkt->opc = op;
 
     if (op == TO_DATA) {
         /* get the required data from the user */
-        len = ctxt->cb(ctxt->block_size * ctxt->block_nr, pkt->data, ctxt->block_size);
+        len = ctxt->data_cb(ctxt->block_size * ctxt->block_nr, pkt->data, ctxt->block_size);
     }
 
     /* send the data */
     return _tftp_send(buf, ctxt, sizeof(tftp_packet_data_t) + len);
 }
 
-#if ENABLE_TFTP_ERROR_SEND
 tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg)
 {
     int strl = err_msg
@@ -652,9 +644,95 @@ tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_
     memcpy(pkt->err_msg, err_msg, strl);
 
     /* return the size of the packet */
-    return sizeof(tftp_packet_error_t) + strl;
+    _tftp_send(buf, ctxt, sizeof(tftp_packet_error_t) + strl);
+
+    /* special case, stop the retry mechanism */
+    vtimer_remove(&(ctxt->timer));
+
+    return FAILED;
 }
-#endif
+
+tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
+    network_uint16_t src_port, dst_port;
+    gnrc_pktsnip_t *udp, *ip;
+
+    if (len > TFTP_DEFAULT_DATA_SIZE) {
+        DEBUG("tftp: can't reallocate to bigger packet, buffer overflowed");
+        return FAILED;
+    }
+    else if (gnrc_pktbuf_realloc_data(buf, len) != 0) {
+        DEBUG("tftp: failed to reallocate data snippet");
+        return FAILED;
+    }
+
+    /* allocate UDP header, set source port := destination port */
+    src_port.u16 = ctxt->src_port;
+    dst_port.u16 = ctxt->dst_port;
+    udp = gnrc_udp_hdr_build(buf, src_port.u8, sizeof(src_port),
+            dst_port.u8, sizeof(dst_port));
+    if (udp == NULL) {
+        DEBUG("dns: error unable to allocate UDP header");
+        gnrc_pktbuf_release(buf);
+        return FAILED;
+    }
+
+    /* allocate IPv6 header */
+    ip = gnrc_ipv6_hdr_build(udp, NULL, 0, ctxt->peer->u8, sizeof(ipv6_addr_t));
+    if (ip == NULL) {
+        DEBUG("dns: error unable to allocate IPv6 header");
+        gnrc_pktbuf_release(udp);
+        return FAILED;
+    }
+
+    /* send packet */
+    if (gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL,
+                                  ip) == 0) {
+        /* if send failed inform the user */
+        DEBUG("dns: error unable to locate UDP thread");
+        gnrc_pktbuf_release(ip);
+        return FAILED;
+    }
+
+    vtimer_set_msg(&(ctxt->timer), timex_set(ctxt->block_timeout, 0), thread_getpid(),
+                    TFTP_TIMEOUT_MSG, NULL);
+
+    return BUSY;
+}
+
+bool _tftp_validate_ack(tftp_context_t *ctxt, uint8_t *buf) {
+    tftp_packet_data_t *pkt = (tftp_packet_data_t*) buf;
+
+    return (ctxt->block_nr == byteorder_ntohs(pkt->block_nr));
+}
+
+int _tftp_decode_start(tftp_context_t *ctxt, uint8_t *buf, gnrc_pktsnip_t *outbuf) {
+    /* decode the packet */
+    tftp_header_t *hdr = (tftp_header_t*)buf;
+
+    /* find the first 0 char */
+    char *str_mode = ((char*) memchr(hdr->data, 0, TFTP_DEFAULT_DATA_SIZE));
+
+    /* get the file name */
+    int fnlen = ((char*)hdr->data) - str_mode;
+    if (fnlen >= GNRC_TFTP_MAX_FILENAME_LEN) {
+        _tftp_send_error(ctxt, outbuf, TE_ILLOPT, "Filename to long");
+        return FAILED;
+    }
+    memcpy(ctxt->full_file_name, hdr->data, fnlen);
+
+    /* decode the TFTP transfer mode */
+    if (!str_mode)
+        return -EINVAL;
+
+    for (uint32_t idx = 0; idx < ARRAY_LEN(_tftp_modes); ++idx) {
+        if (memcmp(_tftp_modes[idx].name, str_mode, _tftp_modes[idx].len) == 0) {
+            ctxt->mode = (tftp_mode_t)idx;
+            return ((str_mode + _tftp_modes[idx].len) - (char*)buf);
+        }
+    }
+
+    return -EINVAL;
+}
 
 int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t start) {
     tftp_header_t *pkt = (tftp_header_t*)buf->data;
@@ -690,36 +768,10 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
     return sizeof(tftp_header_t) + offset;
 }
 
-int _tftp_decode_start(uint8_t *buf, const char **file_name, tftp_mode_t *mode) {
-    /* decode the packet */
-    tftp_header_t *hdr = (tftp_header_t*)buf;
-    *file_name = (char*)(hdr->data);
-
-    /* decode the TFTP transfer mode */
-    char *str_mode = ((char*) memchr(hdr->data, 0, TFTP_DEFAULT_DATA_SIZE));
-    if (!str_mode)
-        return -EINVAL;
-
-    for (uint32_t idx = 0; idx < ARRAY_LEN(_tftp_modes); ++idx) {
-        if (memcmp(_tftp_modes[idx].name, str_mode, _tftp_modes[idx].len) == 0) {
-            *mode = (tftp_mode_t)idx;
-            return ((str_mode + _tftp_modes[idx].len) - (char*)buf);
-        }
-    }
-
-    return -EINVAL;
-}
-
-bool _tftp_validate_ack(tftp_context_t *ctxt, uint8_t *buf) {
-    tftp_packet_data_t *pkt = (tftp_packet_data_t*) buf;
-
-    return (ctxt->block_nr == NTOHS(pkt->block_nr));
-}
-
 int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf) {
     tftp_packet_data_t *pkt = (tftp_packet_data_t*) buf->data;
 
-    uint16_t block_nr = NTOHS(pkt->block_nr);
+    uint16_t block_nr = byteorder_ntohs(pkt->block_nr);
 
     /* check if this is the packet we are waiting for */
     if (block_nr != (ctxt->block_nr + 1)) {
@@ -727,7 +779,7 @@ int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf) {
     }
 
     /* send the user data trough to the user application */
-    if (ctxt->cb(ctxt->block_nr * ctxt->block_size, pkt->data, buf->size - sizeof(tftp_packet_data_t)) < 0) {
+    if (ctxt->data_cb(ctxt->block_nr * ctxt->block_size, pkt->data, buf->size - sizeof(tftp_packet_data_t)) < 0) {
         return BUSY;
     }
 
