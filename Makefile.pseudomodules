@@ -13,7 +13,6 @@ PSEUDOMODULES += log
 PSEUDOMODULES += log_printfnoformat
 PSEUDOMODULES += newlib
 PSEUDOMODULES += pktqueue
-PSEUDOMODULES += gnrc_tftp_client
 PSEUDOMODULES += schedstatistics
 PSEUDOMODULES += netif
 
