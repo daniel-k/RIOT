@@ -261,24 +261,42 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     switch (_tftp_parse_type(data)) {
     case TO_RRQ:
     case TO_RWQ: {
-        /* TODO when in server mode this indicates that a clients requests a
-         * transfer start */
-#if 0
+        if (byteorder_ntohs(hdr->dst_port) != GNRC_TFTP_DEFAULT_DST_PORT) {
+            /* not a valid start packet */
+            return FAILED;
+        }
+
         /* generate a random source UDP source port */
         do {
             ctxt->src_port = (genrand_uint32() & 0xff) +
                                  GNRC_TFTP_DEFAULT_SRC_PORT;
         } while (gnrc_netreg_num(GNRC_NETTYPE_UDP, ctxt->src_port));
 
+        /* get the context of the client */
+        ctxt->dst_port = byteorder_ntohs(hdr->src_port);
         ctxt->op = _tftp_parse_type(data);
-        _tftp_decode_start(data, &(ctxt->file_name), &(ctxt->mode));
-        _tftp_decode_options(data, pkt);
+        int offset = _tftp_decode_start(data, &(ctxt->file_name), &(ctxt->mode));
+        if (offset < 0) {
+            return FAILED;
+        }
 
-        /* TODO send ACK if valid and no opts, OACK if options exists,
-         *  ERROR if not */
-        _tftp_send_ack(data, 0);
-        _tftp_send_error(data, TE_UN_DEF, "");
-#endif
+        /* TODO validate if the application accepts the filename and modes */
+        /* if (ctxt->start_callback(ctxt->file_name, ctxt->mode) != 0) {
+         *     tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
+         *     return FAILED;
+         * }
+         */
+
+        /* decode the options */
+        if (_tftp_decode_options(ctxt, pkt, offset) > offset) {
+            /* the client send the TFTP options, we must OACK */
+            _tftp_send_dack(ctxt, outbuf, TO_OACK);
+        }
+        else {
+            /* the client didn't send options, use ACK and set defaults */
+            _tftp_set_default_options(ctxt);
+            _tftp_send_dack(ctxt, outbuf, TO_ACK);
+        }
     } break;
 
     case TO_DATA: {
@@ -406,7 +424,7 @@ tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcod
 {
     size_t len = 0;
 
-    assert(op == TO_DATA || op == TO_ACK);
+    assert(op == TO_DATA || op == TO_ACK || op == TO_OACK);
 
     /* fill the packet */
     tftp_packet_data_t *pkt = (tftp_packet_data_t*)(buf->data);
@@ -471,10 +489,10 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
         }
     }
 
-    return sizeof(tftp_header_t) + buf->size;
+    return sizeof(tftp_header_t) + offset;
 }
 
-int _tftp_decode_start(uint8_t *buf, char **file_name, tftp_mode_t *mode) {
+int _tftp_decode_start(uint8_t *buf, const char **file_name, tftp_mode_t *mode) {
     /* decode the packet */
     tftp_header_t *hdr = (tftp_header_t*)buf;
     *file_name = (char*)(hdr->data);

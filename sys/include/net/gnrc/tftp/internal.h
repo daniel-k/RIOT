@@ -182,7 +182,7 @@ extern tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tf
 
 extern int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t start);
 
-extern int _tftp_decode_start(uint8_t *buf, char **file_name, tftp_mode_t *mode);
+extern int _tftp_decode_start(uint8_t *buf, const char **file_name, tftp_mode_t *mode);
 
 extern bool _tftp_validate_ack(tftp_context_t *ctxt, uint8_t *buf);
 
