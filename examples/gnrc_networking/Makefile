@@ -25,7 +25,7 @@ USEMODULE += gnrc_rpl
 USEMODULE += gnrc_pktdump
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
-USEMODULE += gnrc_tftp_client
+USEMODULE += gnrc_tftp
 # Add also the shell, some shell commands
 USEMODULE += shell
 USEMODULE += shell_commands
