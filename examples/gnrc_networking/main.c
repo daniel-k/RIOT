@@ -28,6 +28,8 @@
 #include "net/gnrc/netreg.h"
 #include "thread.h"
 
+const char *addr = "fe80::44:d0ff:fe21:661b";
+
 extern ssize_t write(int fildes, const void *buf, size_t nbyte);
 extern int udp_cmd(int argc, char **argv);
 
@@ -45,8 +47,7 @@ static int tftp_handle(int argc, char **argv)
 
     if (argc == 2) {
         ipv6_addr_t ip;
-        const char *dst = "fe80::c034:39ff:feae:8949";
-        ipv6_addr_from_str(&ip, dst);
+        ipv6_addr_from_str(&ip, addr);
         gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
     } else if (argc == 1) {
         gnrc_netreg_entry_t entry;
@@ -75,14 +76,13 @@ int main(void)
 
     /* start shell */
     puts("All up, running the shell now");
-    char line_buf[SHELL_DEFAULT_BUFSIZE];
+    //char line_buf[SHELL_DEFAULT_BUFSIZE];
 
     ipv6_addr_t ip;
-    const char *dst = "fe80::c034:39ff:feae:8949";
-    ipv6_addr_from_str(&ip, dst);
+    ipv6_addr_from_str(&ip, addr);
     gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
 
-    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+    //shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;
