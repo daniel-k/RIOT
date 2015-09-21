@@ -701,7 +701,7 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
     }
 
     ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
-    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout, &(ctxt->timer_msg), thread_getpid());
+    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout * 1000000, &(ctxt->timer_msg), thread_getpid());
 
     return BUSY;
 }
