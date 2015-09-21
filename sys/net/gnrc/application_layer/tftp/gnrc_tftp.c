@@ -142,7 +142,8 @@ typedef struct {
     tftp_mode_t mode;
     tftp_opcodes_t op;
     ipv6_addr_t *peer;
-    vtimer_t timer;
+    xtimer_t timer;
+    msg_t timer_msg;
     uint32_t timeout;
     uint16_t dst_port;
     uint16_t src_port;
@@ -446,6 +447,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     uint8_t *data = (uint8_t*)pkt->data;
     udp_hdr_t *hdr = (udp_hdr_t*)pkt->next->data;
 
+    xtimer_remove(&(ctxt->timer));
+
     switch (_tftp_parse_type(data)) {
     case TO_RRQ:
     case TO_RWQ: {
@@ -651,7 +654,7 @@ tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_
     _tftp_send(buf, ctxt, sizeof(tftp_packet_error_t) + strl);
 
     /* special case, stop the retry mechanism */
-    vtimer_remove(&(ctxt->timer));
+    xtimer_remove(&(ctxt->timer));
 
     return FAILED;
 }
@@ -697,8 +700,8 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
         return FAILED;
     }
 
-    vtimer_set_msg(&(ctxt->timer), timex_set(ctxt->block_timeout, 0), thread_getpid(),
-                    TFTP_TIMEOUT_MSG, NULL);
+    ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
+    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout, &(ctxt->timer_msg), thread_getpid());
 
     return BUSY;
 }
