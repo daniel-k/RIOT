@@ -113,6 +113,7 @@ int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_
     ctxt->block_size = blksize;
     ctxt->timeout = timeout;
     ctxt->transfer_size = total_size;
+    ctxt->use_options = true;
 
     return FINISHED;
 }
@@ -222,6 +223,12 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
     return BUSY;
 }
 
+void _tftp_set_default_options(tftp_context_t *ctxt) {
+    ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
+    ctxt->timeout = 1;
+    ctxt->transfer_size = 0;
+}
+
 tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     gnrc_pktsnip_t *outbuf = gnrc_pktbuf_add(NULL, NULL, TFTP_DEFAULT_DATA_SIZE,
                                              GNRC_NETTYPE_UNDEF);
@@ -284,7 +291,10 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* check if this is the first block */
         if (!ctxt->block_nr) {
-            /* TODO data if no opt ack received set default values */
+            /* no OACK received, restore default TFTP parameters */
+            _tftp_set_default_options(ctxt);
+
+            /* switch the destination port to the src port of the server */
             ctxt->dst_port = byteorder_ntohs(hdr->src_port);
         }
 
@@ -309,10 +319,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* check if this is the first ACK */
         if (!ctxt->block_nr) {
-            /* TODO data if no opt ACK received set default values */
-            ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
-            ctxt->timeout = 1;
-            ctxt->transfer_size = 0;
+            /* no OACK received restore default TFTP parameters */
+            _tftp_set_default_options(ctxt);
 
             /* switch the destination port to the src port of the server */
             ctxt->dst_port = byteorder_ntohs(hdr->src_port);
@@ -329,7 +337,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         _tftp_decode_error(data, &err, &err_msg);
 
-        /* TODO inform the user that there is an error */
+        /* TODO inform the user what the error was ? */
 
         return FAILED;
     } break;
@@ -384,9 +392,11 @@ tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf)
 
     /* fill the options */
     uint32_t offset = (len + m->len);
-    offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_BLKSIZE, ctxt->block_size);
-    offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TIMEOUT, ctxt->timeout);
-    offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TSIZE, ctxt->transfer_size);
+    if (ctxt->use_options) {
+        offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_BLKSIZE, ctxt->block_size);
+        offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TIMEOUT, ctxt->timeout);
+        offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TSIZE, ctxt->transfer_size);
+    }
 
     /* send the data */
     return _tftp_send(buf, ctxt, offset + sizeof(tftp_header_t));
@@ -470,7 +480,7 @@ int _tftp_decode_start(uint8_t *buf, char **file_name, tftp_mode_t *mode) {
     *file_name = (char*)(hdr->data);
 
     /* decode the TFTP transfer mode */
-    char *str_mode = ((char*) memchr(hdr->data, 0, TFTP_DEFAULT_DATA_SIZE)); /* TODO get from context */
+    char *str_mode = ((char*) memchr(hdr->data, 0, TFTP_DEFAULT_DATA_SIZE));
     if (!str_mode)
         return -EINVAL;
 
@@ -497,12 +507,12 @@ int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf) {
 
     /* check if this is the packet we are waiting for */
     if (block_nr != (ctxt->block_nr + 1)) {
-        return -1;
+        return BUSY;
     }
 
     /* send the user data trough to the user application */
     if (ctxt->cb(ctxt->block_nr * ctxt->block_size, pkt->data, buf->size - sizeof(tftp_packet_data_t)) < 0) {
-        return -1;
+        return BUSY;
     }
 
     /* return the number of data bytes received */
