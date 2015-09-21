@@ -77,12 +77,13 @@ typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len
  *
  * @param [in] addr         the address of the server
  * @param [in] file_name    the filename of the file to get
- * @param [in] cb           the callback which is called for each read data block
+ * @param [in] data_cb      the callback which is called for each read data block
+ * @param [in] start_cb     the callback which is called if the server returns the transfer_size option
  *
  * @return 1 on success
  * @return -1 on failure
  */
-extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb);
+extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_data_callback data_cb, tftp_transfer_start_callback start_cb);
 
 /**
  * @brief Start an TFTP client write action to the given destination
@@ -94,7 +95,7 @@ extern int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name, tftp_
  * @return 1 on success
  * @return -1 on failure
  */
-extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback cb, uint32_t total_size);
+extern int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name, tftp_data_callback data_cb, uint32_t total_size);
 
 #ifdef __cplusplus
 }
