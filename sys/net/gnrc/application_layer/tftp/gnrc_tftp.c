@@ -148,6 +148,7 @@ typedef struct {
     uint16_t src_port;
     tftp_transfer_start_callback start_cb;
     tftp_data_callback data_cb;
+    gnrc_netreg_entry_t entry;
 
     /* transfer parameters */
     uint16_t block_nr;
@@ -209,10 +210,8 @@ static tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
 /* send data or and ack depending if we are reading or writing */
 static tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcodes_t op);
 
-#if ENABLE_TFTP_ERROR_SEND
 /* send and TFTP error to the client */
 static tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
-#endif
 
 /* this function sends the actual packet */
 static tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len);
@@ -249,11 +248,11 @@ static uint16_t _tftp_get_maximum_block_size(void) {
 }
 
 int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
-                          tftp_data_callback data_cb) {
+                          tftp_data_callback data_cb, tftp_transfer_start_callback start_cb) {
     tftp_context_t ctxt;
 
     /* prepare the context */
-    if (_tftp_init_ctxt(addr, file_name, NULL, data_cb, TO_RRQ, &ctxt) != FINISHED) {
+    if (_tftp_init_ctxt(addr, file_name, start_cb, data_cb, TO_RRQ, &ctxt) != FINISHED) {
         return -EINVAL;
     }
 
@@ -450,17 +449,11 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     switch (_tftp_parse_type(data)) {
     case TO_RRQ:
     case TO_RWQ: {
-        /* TODO untested */
+        /* TODO server untested */
         if (byteorder_ntohs(hdr->dst_port) != GNRC_TFTP_DEFAULT_DST_PORT) {
             /* not a valid start packet */
             return FAILED;
         }
-
-        /* generate a random source UDP source port */
-        do {
-            ctxt->src_port = (genrand_uint32() & 0xff) +
-                                 GNRC_TFTP_DEFAULT_SRC_PORT;
-        } while (gnrc_netreg_num(GNRC_NETTYPE_UDP, ctxt->src_port));
 
         /* get the context of the client */
         ctxt->dst_port = byteorder_ntohs(hdr->src_port);
@@ -470,11 +463,22 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
             return FAILED;
         }
 
-        /* TODO validate if the application accepts the filename and modes */
+        /* validate if the application accepts the filename and modes */
         if (ctxt->start_cb(ctxt->full_file_name, ctxt->mode) != 0) {
-            //tftp_state _tftp_send_error(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_err_codes_t err, const char *err_msg);
+            _tftp_send_error(ctxt, outbuf, TE_ACCESS, "Blocked by user application");
             return FAILED;
         }
+
+        /* generate a random source UDP source port */
+        do {
+            ctxt->src_port = (genrand_uint32() & 0xff) +
+                                 GNRC_TFTP_DEFAULT_SRC_PORT;
+        } while (gnrc_netreg_num(GNRC_NETTYPE_UDP, ctxt->src_port));
+
+        ctxt->entry.next = NULL;
+        ctxt->entry.demux_ctx = ctxt->src_port;
+        ctxt->entry.pid = thread_getpid();
+        gnrc_netreg_register(GNRC_NETTYPE_UDP, &(ctxt->entry));
 
         /* decode the options */
         if (_tftp_decode_options(ctxt, pkt, offset) > offset) {
@@ -544,7 +548,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         _tftp_decode_error(data, &err, &err_msg);
 
-        /* TODO inform the user what the error was ? */
+        /* inform the user what the error was ? */
 
         return FAILED;
     } break;
@@ -755,6 +759,10 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
                 }
                 else if (idx == TOPT_TSIZE) {
                     ctxt->transfer_size = atoi(value);
+
+                    if (ctxt->start_cb) {
+                        ctxt->start_cb(ctxt->full_file_name, ctxt->transfer_size);
+                    }
                 }
                 else if (idx == TOPT_TIMEOUT) {
                     ctxt->timeout = atoi(value);

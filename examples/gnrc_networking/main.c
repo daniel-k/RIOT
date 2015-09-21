@@ -41,6 +41,12 @@ static int _tftp_data_cb(uint32_t offset, void *data, uint32_t data_len) {
     return write(STDOUT_FILENO, c, data_len);
 }
 
+static bool _tftp_start_cb(const char *file_name, size_t len) {
+    printf("tftp: reading %s:%u\n", file_name, len);
+
+    return true;
+}
+
 static int tftp_handle(int argc, char **argv)
 {
     (void) argv;
@@ -48,7 +54,7 @@ static int tftp_handle(int argc, char **argv)
     if (argc == 2) {
         ipv6_addr_t ip;
         ipv6_addr_from_str(&ip, addr);
-        gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
+        gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb, _tftp_start_cb);
     } else if (argc == 1) {
         gnrc_netreg_entry_t entry;
         entry.next = NULL;
@@ -80,7 +86,7 @@ int main(void)
 
     ipv6_addr_t ip;
     ipv6_addr_from_str(&ip, addr);
-    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb);
+    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb, _tftp_start_cb);
 
     //shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
