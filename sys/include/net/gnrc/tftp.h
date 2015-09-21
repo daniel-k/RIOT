@@ -67,9 +67,14 @@ extern "C" {
 #endif
 
 /**
- * @brief Callback define to
+ * @brief   callback define which is called when a new server request is placed
+ *          or when an client read request is made and the data length option is received
  */
 typedef bool (*tftp_transfer_start_callback)(const char *file_name, uint32_t data_len);
+
+/**
+ * @brief   callback define which is called to get or set data from/to the user application
+ */
 typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len);
 
 /**
