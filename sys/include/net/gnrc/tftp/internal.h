@@ -126,6 +126,7 @@ typedef struct {
     uint16_t block_size;
     uint32_t transfer_size;
     uint16_t block_timeout;
+    bool use_options;
 } tftp_context_t;
 
 /**
