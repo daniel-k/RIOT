@@ -66,6 +66,9 @@ extern "C" {
 #define GNRC_TFTP_MAX_TRANSFER_UNIT         (512)
 #endif
 
+/**
+ * @brief TFTP action to
+ */
 typedef enum {
     TFTP_READ,
     TFTP_WRITE
@@ -83,10 +86,8 @@ typedef bool (*tftp_transfer_start_callback)(tftp_action_t action, const char *f
 typedef int (*tftp_data_callback)(uint32_t offset, void *data, uint32_t data_len);
 
 /**
- * @brief Start an TFTP client read action from the given destination
+ * @brief Start an TFTP server
  *
- * @param [in] addr         the address of the server
- * @param [in] file_name    the filename of the file to get
  * @param [in] data_cb      the callback which is called for each read data block
  * @param [in] start_cb     the callback which is called if the server returns the transfer_size option
  *
