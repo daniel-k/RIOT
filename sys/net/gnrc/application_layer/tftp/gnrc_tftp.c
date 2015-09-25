@@ -103,9 +103,9 @@ typedef enum {
 
 /* ordered as @see tftp_mode_t */
 tftp_opt_t _tftp_modes[] = {
-        MODE(netascii),
-        MODE(octet),
-        MODE(mail),
+    MODE(netascii),
+    MODE(octet),
+    MODE(mail),
 };
 
 /**
@@ -119,9 +119,9 @@ typedef enum {
 
 /* ordered as @see tftp_options_t */
 tftp_opt_t _tftp_options[] = {
-        MODE(blksize),
-        MODE(timeout),
-        MODE(tsize),
+    MODE(blksize),
+    MODE(timeout),
+    MODE(tsize),
 };
 
 /**
@@ -155,6 +155,7 @@ typedef struct {
     uint16_t block_size;
     uint32_t transfer_size;
     uint32_t block_timeout;
+    uint32_t retries;
     bool use_options;
 } tftp_context_t;
 
@@ -359,21 +360,30 @@ int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_
 
 int _tftp_server(tftp_context_t *ctxt) {
     msg_t msg;
-    int ret = 0;
-
-    /* register our TFTP response listener */
     gnrc_netreg_entry_t entry = { NULL, GNRC_TFTP_DEFAULT_DST_PORT,
-                                  thread_getpid() };
-    if (gnrc_netreg_register(GNRC_NETTYPE_UDP, &entry)) {
-        DEBUG("tftp: error starting server.");
-        return FAILED;
-    }
+                              thread_getpid() };
 
-    /* main processing loop */
-    while (ret > 0) {
-        /* wait for a message */
-        msg_receive(&msg);
-        ret = _tftp_state_processes(ctxt, &msg);
+    while (1) {
+        int ret = BUSY;
+        bool got_client = false;
+
+        /* register our TFTP response listener */
+        if (gnrc_netreg_register(GNRC_NETTYPE_UDP, &entry)) {
+            DEBUG("tftp: error starting server.");
+            return FAILED;
+        }
+
+        /* main processing loop */
+        while (ret == BUSY) {
+            /* wait for a message */
+            msg_receive(&msg);
+            ret = _tftp_state_processes(ctxt, &msg);
+
+            if (ret == BUSY && !got_client) {
+                gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &entry);
+                got_client = true;
+            }
+        }
     }
 
     /* unregister our UDP listener on this thread */
@@ -422,6 +432,11 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         return _tftp_send_start(ctxt, outbuf);
     }
     else if (m->type == TFTP_TIMEOUT_MSG) {
+        if (++(ctxt->retries) > GNRC_TFTP_MAX_RETRIES) {
+            /* transfer failed due to lost peer */
+            return FAILED;
+        }
+
         /* increase the timeout for congestion control */
         ctxt->block_timeout <<= 1;
 
@@ -444,7 +459,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     gnrc_pktsnip_t *pkt = (gnrc_pktsnip_t*)(m->content.ptr);
 
     assert(pkt->next || pkt->next->type != GNRC_NETTYPE_UDP);
-    assert(pkt->next->next || pkt->next->next->type != GNRC_NETTYPE_UDP);
+    assert(pkt->next->next || pkt->next->next->type != GNRC_NETTYPE_IPV6);
 
     uint8_t *data = (uint8_t*)pkt->data;
     udp_hdr_t *udp = (udp_hdr_t*)pkt->next->data;
@@ -485,21 +500,29 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         gnrc_netreg_register(GNRC_NETTYPE_UDP, &(ctxt->entry));
 
         /* decode the options */
+        tftp_state state;
         if (_tftp_decode_options(ctxt, pkt, offset) > offset) {
             /* the client send the TFTP options, we must OACK */
-            _tftp_send_dack(ctxt, outbuf, TO_OACK);
+            state = _tftp_send_dack(ctxt, outbuf, TO_OACK);
         }
         else {
             /* the client didn't send options, use ACK and set defaults */
             _tftp_set_default_options(ctxt);
-            _tftp_send_dack(ctxt, outbuf, TO_ACK);
+            state = _tftp_send_dack(ctxt, outbuf, TO_ACK);
         }
+
+        // check if the client negotiation was successful
+        if (state != BUSY) {
+            gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &(ctxt->entry));
+        }
+
+        return state;
     } break;
 
     case TO_DATA: {
         /* try to process the data */
         int proc = _tftp_process_data(ctxt, pkt);
-        if (proc < 0) {
+        if (proc <= 0) {
             /* the data is not accepted return */
             return BUSY;
         }
@@ -565,9 +588,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         ctxt->dst_port = byteorder_ntohs(udp->src_port);
 
         /* send and ACK that we accept the options */
-        _tftp_send_dack(ctxt, outbuf, TO_ACK);
-
-        return BUSY;
+        return _tftp_send_dack(ctxt, outbuf, TO_ACK);
     } break;
     }
 
@@ -593,10 +614,11 @@ size_t _tftp_add_option(uint8_t *dst, tftp_opt_t *opt, uint32_t value) {
     return ++offset;
 }
 
-void _tftp_append_options(tftp_context_t *ctxt, tftp_header_t *hdr, uint32_t offset) {
+uint32_t _tftp_append_options(tftp_context_t *ctxt, tftp_header_t *hdr, uint32_t offset) {
     offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_BLKSIZE, ctxt->block_size);
     offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TIMEOUT, ctxt->timeout);
     offset += _tftp_add_option(hdr->data + offset, _tftp_options + TOPT_TSIZE, ctxt->transfer_size);
+    return offset;
 }
 
 tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf)
@@ -614,7 +636,7 @@ tftp_state _tftp_send_start(tftp_context_t *ctxt, gnrc_pktsnip_t *buf)
     /* fill the options */
     uint32_t offset = (len + m->len);
     if (ctxt->use_options) {
-        _tftp_append_options(ctxt, hdr, offset);
+        offset = _tftp_append_options(ctxt, hdr, offset);
     }
 
     /* send the data */
@@ -638,7 +660,7 @@ tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcod
     }
     else if (op == TO_OACK) {
         /* append the options */
-        _tftp_append_options(ctxt, (tftp_header_t*)pkt, 0);
+        len = _tftp_append_options(ctxt, (tftp_header_t*)pkt, 0);
     }
 
     /* send the data */
@@ -710,7 +732,7 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
     }
 
     ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
-    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout * 1000000, &(ctxt->timer_msg), thread_getpid());
+    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout * MS_IN_USEC, &(ctxt->timer_msg), thread_getpid());
 
     return BUSY;
 }
@@ -766,18 +788,23 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
         for (uint32_t idx = 0; idx < ARRAY_LEN(_tftp_options); ++idx) {
             if (memcmp(name, _tftp_options[idx].name, _tftp_options[idx].len) == 0) {
                 /* set the option value of the known options */
-                if (idx == TOPT_BLKSIZE) {
+                switch (idx)
+                {
+                case TOPT_BLKSIZE:
                     ctxt->block_size = atoi(value);
-                }
-                else if (idx == TOPT_TSIZE) {
+                    break;
+
+                case TOPT_TSIZE:
                     ctxt->transfer_size = atoi(value);
 
                     if (ctxt->start_cb) {
                         ctxt->start_cb(TFTP_READ, ctxt->file_name, ctxt->transfer_size);
                     }
-                }
-                else if (idx == TOPT_TIMEOUT) {
+                    break;
+
+                case TOPT_TIMEOUT:
                     ctxt->timeout = atoi(value);
+                    break;
                 }
 
                 break;

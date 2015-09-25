@@ -66,6 +66,10 @@ extern "C" {
 #define GNRC_TFTP_MAX_TRANSFER_UNIT         (512)
 #endif
 
+#ifndef GNRC_TFTP_MAX_RETRIES
+#define GNRC_TFTP_MAX_RETRIES               (5)
+#endif
+
 typedef enum {
     TFTP_READ,
     TFTP_WRITE
