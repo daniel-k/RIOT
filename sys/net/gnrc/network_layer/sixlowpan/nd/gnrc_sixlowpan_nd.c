@@ -51,9 +51,13 @@ void gnrc_sixlowpan_nd_init(gnrc_ipv6_netif_t *iface)
     iface->rtr_sol_count = 0;   /* first will be sent immediately */
 
     DEBUG("6lo nd: retransmit multicast rtr sol in 10 sec\n");
+#ifndef MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER
     _rtr_sol_reschedule(iface, GNRC_SIXLOWPAN_ND_RTR_SOL_INT);
+#endif
     mutex_unlock(&iface->mutex);
+#ifndef MODULE_GNRC_SIXLOWPAN_ND_BORDER_ROUTER
     gnrc_ndp_internal_send_rtr_sol(iface->pid, NULL);
+#endif
 }
 
 void gnrc_sixlowpan_nd_mc_rtr_sol(gnrc_ipv6_netif_t *iface)
@@ -221,9 +225,10 @@ void gnrc_sixlowpan_nd_rtr_sol_reschedule(gnrc_ipv6_nc_t *nce, uint32_t sec_dela
 {
     assert(nce != NULL);
     assert(sec_delay != 0U);
-    vtimer_remove(&nce->rtr_sol_timer);
-    vtimer_set_msg(&nce->rtr_sol_timer, timex_set(sec_delay, 0), gnrc_ipv6_pid,
-                   GNRC_SIXLOWPAN_ND_MSG_MC_RTR_SOL, nce);
+    gnrc_ipv6_netif_t *iface = gnrc_ipv6_netif_get(nce->iface);
+    vtimer_remove(&iface->rtr_sol_timer);
+    vtimer_set_msg(&iface->rtr_sol_timer, timex_set(sec_delay, 0), gnrc_ipv6_pid,
+                   GNRC_SIXLOWPAN_ND_MSG_MC_RTR_SOL, iface);
 }
 
 gnrc_pktsnip_t *gnrc_sixlowpan_nd_opt_ar_build(uint8_t status, uint16_t ltime, eui64_t *eui64,
@@ -283,10 +288,7 @@ uint8_t gnrc_sixlowpan_nd_opt_ar_handle(kernel_pid_t iface, ipv6_hdr_t *ipv6,
             switch (ar_opt->status) {
                 case SIXLOWPAN_ND_STATUS_SUCCESS:
                     DEBUG("6lo nd: address registration successful\n");
-                    ipv6_addr_t *netif_addr_entry = gnrc_ipv6_netif_find_addr(iface, &(ipv6->dst));
-                    gnrc_ipv6_netif_addr_t *netif_addr = gnrc_ipv6_netif_addr_get(netif_addr_entry);
                     mutex_lock(&ipv6_iface->mutex);
-                    netif_addr->flags &= ~GNRC_IPV6_NETIF_ADDR_FLAGS_TENTATIVE;
                     /* reschedule 1 minute before lifetime expires */
                     timex_t t = { (uint32_t)(byteorder_ntohs(ar_opt->ltime) - 1) * 60, 0 };
                     vtimer_remove(&nc_entry->nbr_sol_timer);
@@ -367,8 +369,8 @@ uint8_t gnrc_sixlowpan_nd_opt_ar_handle(kernel_pid_t iface, ipv6_hdr_t *ipv6,
 
 bool gnrc_sixlowpan_nd_opt_6ctx_handle(uint8_t icmpv6_type, sixlowpan_nd_opt_6ctx_t *ctx_opt)
 {
-    if (((ctx_opt->ctx_len < 64) && (ctx_opt->len != 2)) ||
-        ((ctx_opt->ctx_len >= 64) && (ctx_opt->len != 3))) {
+    if (((ctx_opt->ctx_len <= 64) && (ctx_opt->len != 2)) ||
+        ((ctx_opt->ctx_len > 64) && (ctx_opt->len != 3))) {
         DEBUG("6lo nd: invalid 6LoWPAN context option received\n");
         return false;
     }

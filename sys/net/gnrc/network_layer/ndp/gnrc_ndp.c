@@ -564,9 +564,9 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
                     return;
                 }
 #ifdef MODULE_GNRC_SIXLOWPAN_ND
-                if (byteorder_ntohl(((ndp_opt_pi_t *)opt)->valid_ltime) <
-                    next_rtr_sol) {
-                    next_rtr_sol = byteorder_ntohl(((ndp_opt_pi_t *)opt)->valid_ltime);
+                uint32_t valid_ltime = byteorder_ntohl(((ndp_opt_pi_t *)opt)->valid_ltime);
+                if ((valid_ltime != 0) && (valid_ltime < next_rtr_sol)) {
+                    next_rtr_sol = valid_ltime;
                 }
 #endif
                 break;
@@ -577,9 +577,9 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
                     /* invalid 6LoWPAN context option */
                     return;
                 }
-                if (byteorder_ntohs(((sixlowpan_nd_opt_6ctx_t *)opt)->ltime) <
-                    (next_rtr_sol / 60)) {
-                    next_rtr_sol = byteorder_ntohs(((sixlowpan_nd_opt_6ctx_t *)opt)->ltime) * 60;
+                uint16_t ltime = byteorder_ntohs(((sixlowpan_nd_opt_6ctx_t *)opt)->ltime);
+                if ((ltime != 0) && (ltime < (next_rtr_sol / 60))) {
+                    next_rtr_sol = ltime * 60;
                 }
 
                 break;
@@ -614,7 +614,7 @@ void gnrc_ndp_rtr_adv_handle(kernel_pid_t iface, gnrc_pktsnip_t *pkt, ipv6_hdr_t
         /* 3/4 of the time should be "well before" enough the respective timeout
          * not to run out; see https://tools.ietf.org/html/rfc6775#section-5.4.3 */
         next_rtr_sol *= 3;
-        next_rtr_sol >>= 2;
+        next_rtr_sol = (next_rtr_sol > 4) ? (next_rtr_sol >> 2) : 1;
         /* according to https://tools.ietf.org/html/rfc6775#section-5.3:
          * "In all cases, the RS retransmissions are terminated when an RA is
          *  received."
@@ -678,19 +678,17 @@ void gnrc_ndp_retrans_nbr_sol(gnrc_ipv6_nc_t *nc_entry)
             }
         }
         else if (nc_entry->probes_remaining <= 1) {
-#ifdef MODULE_GNRC_SIXLOWPAN_ND_ROUTER
-            if (nc_entry->iface != KERNEL_PID_UNDEF) {
-                gnrc_ipv6_netif_t *ipv6_iface = gnrc_ipv6_netif_get(nc_entry->iface);
-                if ((ipv6_iface->flags & GNRC_IPV6_NETIF_FLAGS_SIXLOWPAN) &&
-                    (ipv6_iface->flags & GNRC_IPV6_NETIF_FLAGS_ROUTER) &&
-                    (gnrc_ipv6_nc_get_type(nc_entry) != GNRC_IPV6_NC_TYPE_GC)) {
-                    /* don't remove non-gc entrys on 6LRs:
-                     * https://tools.ietf.org/html/rfc6775#section-6 */
-                    gnrc_ndp_internal_set_state(nc_entry, GNRC_IPV6_NC_STATE_UNREACHABLE);
-                    return;
-                }
-            }
-#endif
+
+            /* For a 6LoWPAN router entries may be set to UNREACHABLE instead
+             * of removing them, since RFC6775, section 6
+             * (https://tools.ietf.org/html/rfc6775#section-6) says: "if NUD on
+             * the router determines that the host is UNREACHABLE (based on the
+             * logic in [RFC4861]), the NCE SHOULD NOT be deleted but rather
+             * retained until the Registration Lifetime expires." However, this
+             * "SHOULD NOT" is not implemented to circumvent NCEs going into
+             * UNREACHABLE forever and in order to save some memory in the
+             * neighbor cache. */
+
             DEBUG("ndp: Remove nc entry %s for interface %" PRIkernel_pid "\n",
                   ipv6_addr_to_str(addr_str, &nc_entry->ipv6_addr, sizeof(addr_str)),
                   nc_entry->iface);
