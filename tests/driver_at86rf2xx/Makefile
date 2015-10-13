@@ -31,5 +31,6 @@ DRIVER ?= at86rf231
 USEMODULE += $(DRIVER)
 
 CFLAGS += -DDEVELHELP
+CFLAGS += -fdiagnostics-color=auto
 
 include $(RIOTBASE)/Makefile.include
