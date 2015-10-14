@@ -112,6 +112,7 @@ SECTIONS
         _srelocate = .;
         *(.ramfunc .ramfunc.*);
         *(.data .data.*);
+        KEEP (*(.openocd .openocd.*))
         . = ALIGN(4);
         _erelocate = .;
     } > ram
