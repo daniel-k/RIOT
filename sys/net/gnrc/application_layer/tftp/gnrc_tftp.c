@@ -17,6 +17,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 #include <time.h>
 
 #include "net/gnrc/tftp.h"
@@ -55,6 +56,9 @@
 #define TFTP_TIMEOUT_MSG            0x4000
 #define TFTP_DEFAULT_DATA_SIZE      (GNRC_TFTP_MAX_TRANSFER_UNIT    \
                                         + sizeof(tftp_packet_data_t))
+
+/* uint32_t max is 4,294,967,296 */
+char str_buffer[11];
 
 /**
  * @brief TFTP mode help support
@@ -285,24 +289,6 @@ int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
     /* start the process */
     return _tftp_do_client_transfer(&ctxt);
 }
-
-#define INT_DIGITS 6
-char *itoa(int i, size_t *len) {
-    /* Room for INT_DIGITS digits, - and '\0' */
-    static char buf[INT_DIGITS + 2];
-    char *p = buf + INT_DIGITS + 1; /* points to terminating '\0' */
-    if (i >= 0) {
-        do {
-            *--p = '0' + (i % 10);
-            i /= 10;
-        } while (i != 0);
-        *len = (INT_DIGITS + 1) - (p - buf);
-        return p;
-    }
-
-    return NULL;
-}
-#undef INT_DIGITS
 
 int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
                     tftp_transfer_start_callback start_cb,
@@ -616,15 +602,15 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 size_t _tftp_add_option(uint8_t *dst, tftp_opt_t *opt, uint32_t value) {
     size_t offset;
     size_t len;
-    char *val;
 
     /* set the option name */
     memcpy(dst, opt->name, opt->len);
     offset = opt->len;
 
     /* set the option value */
-    val = itoa(value, &len);
-    memcpy(dst + opt->len, val, len);
+    snprintf(str_buffer, sizeof(str_buffer), "%"PRIu32, value);
+    len = strlen(str_buffer);
+    memcpy(dst + opt->len, str_buffer, len);
     offset += len;
 
     /* finish option value */
