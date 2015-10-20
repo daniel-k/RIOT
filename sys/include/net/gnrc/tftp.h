@@ -82,7 +82,7 @@ typedef enum {
  * @brief   callback define which is called when a new server request is placed
  *          or when an client read request is made and the data length option is received
  */
-typedef bool (*tftp_transfer_start_callback)(tftp_action_t action, const char *file_name, uint32_t data_len);
+typedef bool (*tftp_transfer_start_callback)(tftp_action_t action, const char *file_name, size_t data_len);
 
 /**
  * @brief   callback define which is called to get or set data from/to the user application
