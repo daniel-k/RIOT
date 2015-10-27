@@ -379,6 +379,11 @@ int _tftp_server(tftp_context_t *ctxt) {
             msg_receive(&msg);
             ret = _tftp_state_processes(ctxt, &msg);
 
+            /* release packet if we received one */
+            if(msg.type == GNRC_NETAPI_MSG_TYPE_RCV) {
+                gnrc_pktbuf_release((gnrc_pktsnip_t*) msg.content.ptr);
+            }
+
             if (ret == BUSY && !got_client) {
                 gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &entry);
                 got_client = true;
@@ -415,6 +420,11 @@ int _tftp_do_client_transfer(tftp_context_t *ctxt) {
         /* wait for a message */
         msg_receive(&msg);
         ret = _tftp_state_processes(ctxt, &msg);
+
+        /* release packet if we received one */
+        if(msg.type == GNRC_NETAPI_MSG_TYPE_RCV) {
+            gnrc_pktbuf_release((gnrc_pktsnip_t*) msg.content.ptr);
+        }
     }
 
     /* unregister our UDP listener on this thread */
@@ -434,6 +444,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     else if (m->type == TFTP_TIMEOUT_MSG) {
         if (++(ctxt->retries) > GNRC_TFTP_MAX_RETRIES) {
             /* transfer failed due to lost peer */
+            gnrc_pktbuf_release(outbuf);
             return FAILED;
         }
 
@@ -453,6 +464,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     }
     else if (m->type != GNRC_NETAPI_MSG_TYPE_RCV) {
         DEBUG("tftp: unknown message");
+        gnrc_pktbuf_release(outbuf);
         return BUSY;
     }
 
@@ -472,6 +484,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     case TO_RWQ: {
         if (byteorder_ntohs(udp->dst_port) != GNRC_TFTP_DEFAULT_DST_PORT) {
             /* not a valid start packet */
+            gnrc_pktbuf_release(outbuf);
+
             return FAILED;
         }
 
@@ -483,6 +497,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         ctxt->dst_port = byteorder_ntohs(udp->src_port);
         int offset = _tftp_decode_start(ctxt, data, outbuf);
         if (offset < 0) {
+            gnrc_pktbuf_release(outbuf);
             return FAILED;
         }
 
@@ -515,7 +530,6 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         if (state != BUSY) {
             gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &(ctxt->entry));
         }
-
         return state;
     } break;
 
@@ -524,6 +538,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         int proc = _tftp_process_data(ctxt, pkt);
         if (proc <= 0) {
             /* the data is not accepted return */
+            gnrc_pktbuf_release(outbuf);
             return BUSY;
         }
 
@@ -552,6 +567,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         /* validate if this is the ACK we are waiting for */
         if (!_tftp_validate_ack(ctxt, data)) {
             /* invalid packet ACK, drop */
+            gnrc_pktbuf_release(outbuf);
             return BUSY;
         }
 
@@ -566,6 +582,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* send the next data block */
         ++(ctxt->block_nr);
+
         return _tftp_send_dack(ctxt, outbuf, TO_DATA);
     } break;
 
@@ -576,7 +593,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         _tftp_decode_error(data, &err, &err_msg);
 
         /* inform the user what the error was ? */
-
+        gnrc_pktbuf_release(outbuf);
         return FAILED;
     } break;
 
@@ -592,6 +609,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     } break;
     }
 
+    gnrc_pktbuf_release(outbuf);
     return FAILED;
 }
 
@@ -696,10 +714,12 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
 
     if (len > TFTP_DEFAULT_DATA_SIZE) {
         DEBUG("tftp: can't reallocate to bigger packet, buffer overflowed");
+        gnrc_pktbuf_release(buf);
         return FAILED;
     }
     else if (gnrc_pktbuf_realloc_data(buf, len) != 0) {
         DEBUG("tftp: failed to reallocate data snippet");
+        gnrc_pktbuf_release(buf);
         return FAILED;
     }
 
