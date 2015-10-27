@@ -32,7 +32,8 @@ static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 #include "net/gnrc/netreg.h"
 #include "thread.h"
 
-const char *addr = "fe80::44:d0ff:fe21:661b";
+//const char *addr = "fe80::44:d0ff:fe21:661b";
+const char *addr = "affe::1";
 
 extern ssize_t write(int fildes, const void *buf, size_t nbyte);
 extern int udp_cmd(int argc, char **argv);
@@ -89,13 +90,13 @@ int main(void)
 
     /* start shell */
     puts("All up, running the shell now");
-    //char line_buf[SHELL_DEFAULT_BUFSIZE];
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
 
-    ipv6_addr_t ip;
-    ipv6_addr_from_str(&ip, addr);
-    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb, _tftp_start_cb);
+//    ipv6_addr_t ip;
+//    ipv6_addr_from_str(&ip, addr);
+//    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_cb, _tftp_start_cb);
 
-    //shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;
