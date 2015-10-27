@@ -456,8 +456,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
     gnrc_pktsnip_t *pkt = (gnrc_pktsnip_t*)(m->content.ptr);
 
-    assert(pkt->next || pkt->next->type != GNRC_NETTYPE_UDP);
-    assert(pkt->next->next || pkt->next->next->type != GNRC_NETTYPE_IPV6);
+    assert(pkt->next && pkt->next->type == GNRC_NETTYPE_UDP);
+    assert(pkt->next->next && pkt->next->next->type == GNRC_NETTYPE_IPV6);
 
     uint8_t *data = (uint8_t*)pkt->data;
     udp_hdr_t *udp = (udp_hdr_t*)pkt->next->data;
