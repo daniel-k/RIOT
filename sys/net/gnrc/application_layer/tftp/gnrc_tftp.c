@@ -405,8 +405,10 @@ int _tftp_server(tftp_context_t *ctxt) {
             if (ret == BUSY && !got_client) {
                 gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &entry);
                 got_client = true;
+                DEBUG("tftp: connection established\n");
             }
         }
+        DEBUG("tftp: connection terminated\n");
     }
 
     /* unregister our UDP listener on this thread */
@@ -457,11 +459,13 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
     /* check if this is an client start */
     if (!m) {
+        DEBUG("tftp: starting transaction as client\n");
         return _tftp_send_start(ctxt, outbuf);
     }
     else if (m->type == TFTP_TIMEOUT_MSG) {
         if (++(ctxt->retries) > GNRC_TFTP_MAX_RETRIES) {
             /* transfer failed due to lost peer */
+            DEBUG("tftp: peer lost\n");
             gnrc_pktbuf_release(outbuf);
             return FAILED;
         }
@@ -471,10 +475,12 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* the send message timed out, re-sending */
         if (ctxt->dst_port == GNRC_TFTP_DEFAULT_DST_PORT) {
+            DEBUG("tftp: sending timed out, re-sending\n");
             /* we are still negotiating resent, start */
             return _tftp_send_start(ctxt, outbuf);
         }
         else {
+            DEBUG("tftp: wtf?\n");
             /* we are sending / receiving data */
             /* if we are reading resent the ACK, if writing the DATA */
             return _tftp_send_dack(ctxt, outbuf, (ctxt->op == TO_RRQ) ? TO_ACK : TO_DATA);
@@ -502,8 +508,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
     case TO_RWQ: {
         if (byteorder_ntohs(udp->dst_port) != GNRC_TFTP_DEFAULT_DST_PORT) {
             /* not a valid start packet */
+            DEBUG("tftp: incoming packet on port %d dropped\n", byteorder_ntohs(udp->dst_port));
             gnrc_pktbuf_release(outbuf);
-
             return FAILED;
         }
 
@@ -515,6 +521,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         ctxt->dst_port = byteorder_ntohs(udp->src_port);
         int offset = _tftp_decode_start(ctxt, data, outbuf);
         if (offset < 0) {
+            DEBUG("tftp: there is no data?\n");
             gnrc_pktbuf_release(outbuf);
             return FAILED;
         }
@@ -523,6 +530,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         tftp_action_t action = ctxt->op == TO_RRQ ? TFTP_READ : TFTP_WRITE;
         if (ctxt->start_cb(action, ctxt->file_name, ctxt->mode) != 0) {
             _tftp_send_error(ctxt, outbuf, TE_ACCESS, "Blocked by user application");
+            DEBUG("tftp: callback not able to handle mode\n");
             return FAILED;
         }
 
@@ -535,10 +543,12 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         /* decode the options */
         tftp_state state;
         if (_tftp_decode_options(ctxt, pkt, offset) > offset) {
+            DEBUG("tftp: send option ACK\n");
             /* the client send the TFTP options, we must OACK */
             state = _tftp_send_dack(ctxt, outbuf, TO_OACK);
         }
         else {
+            DEBUG("tftp: send normal ACK\n");
             /* the client didn't send options, use ACK and set defaults */
             _tftp_set_default_options(ctxt);
             state = _tftp_send_dack(ctxt, outbuf, TO_ACK);
@@ -546,6 +556,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         // check if the client negotiation was successful
         if (state != BUSY) {
+            DEBUG("tftp: not able to send ACK");
             gnrc_netreg_unregister(GNRC_NETTYPE_UDP, &(ctxt->entry));
         }
         return state;
@@ -829,10 +840,12 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
                 switch (idx)
                 {
                 case TOPT_BLKSIZE:
+                    DEBUG("tftp: got option TOPT_BLKSIZE\n");
                     ctxt->block_size = atoi(value);
                     break;
 
                 case TOPT_TSIZE:
+                    DEBUG("tftp: got option TOPT_TSIZE\n");
                     ctxt->transfer_size = atoi(value);
 
                     if (ctxt->start_cb) {
@@ -841,6 +854,7 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
                     break;
 
                 case TOPT_TIMEOUT:
+                    DEBUG("tftp: got option TOPT_TIMEOUT\n");
                     ctxt->timeout = atoi(value);
                     break;
                 }
