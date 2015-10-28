@@ -264,7 +264,12 @@ int gnrc_tftp_client_read(ipv6_addr_t *addr, const char *file_name,
     }
 
     /* start the process */
-    return _tftp_do_client_transfer(&ctxt);
+    int ret = _tftp_do_client_transfer(&ctxt);
+
+    /* remove possibly stale timer */
+    xtimer_remove(&(ctxt.timer));
+
+    return ret;
 }
 
 int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
@@ -283,7 +288,12 @@ int gnrc_tftp_client_write(ipv6_addr_t *addr, const char *file_name,
     }
 
     /* start the process */
-    return _tftp_do_client_transfer(&ctxt);
+    int ret = _tftp_do_client_transfer(&ctxt);
+
+    /* remove possibly stale timer */
+    xtimer_remove(&(ctxt.timer));
+
+    return ret;
 }
 
 #define INT_DIGITS 6
