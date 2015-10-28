@@ -837,7 +837,10 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
     tftp_header_t *pkt = (tftp_header_t*)buf->data;
     size_t offset = start;
 
-    while (offset < (buf->size - sizeof(tftp_header_t))) {
+    DEBUG("tftp: decode options\n");
+    DEBUG("tftp:   buffer size = %d\n", buf->size);
+    while (offset < (buf->size)) {
+        DEBUG("tftp:   offset = %d\n", offset);
         /* get the option name */
         const char *name = (const char*)(pkt->data + offset);
         offset += strlen(name) + 1;
@@ -876,7 +879,8 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
         }
     }
 
-    return sizeof(tftp_header_t) + offset;
+    DEBUG("tftp:   return %d\n", offset);
+    return offset;
 }
 
 int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf) {
