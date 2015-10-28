@@ -528,7 +528,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* validate if the application accepts the filename and modes */
         tftp_action_t action = ctxt->op == TO_RRQ ? TFTP_READ : TFTP_WRITE;
-        if (ctxt->start_cb(action, ctxt->file_name, ctxt->mode) != 0) {
+        if (!ctxt->start_cb(action, ctxt->file_name, ctxt->mode)) {
             _tftp_send_error(ctxt, outbuf, TE_ACCESS, "Blocked by user application");
             DEBUG("tftp: callback not able to handle mode\n");
             return FAILED;
