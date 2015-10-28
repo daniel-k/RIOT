@@ -796,21 +796,19 @@ int _tftp_decode_start(tftp_context_t *ctxt, uint8_t *buf, gnrc_pktsnip_t *outbu
     /* decode the packet */
     tftp_header_t *hdr = (tftp_header_t*)buf;
 
-    /* find the first 0 char */
-    char *str_mode = ((char*) memchr(hdr->data, 0, TFTP_DEFAULT_DATA_SIZE));
-
-    /* get the file name */
-    int fnlen = ((char*)hdr->data) - str_mode;
+    /* get the file name and copy terminating byte */
+    size_t fnlen = strlen((char*)hdr->data) + 1;
     if (fnlen >= GNRC_TFTP_MAX_FILENAME_LEN) {
         _tftp_send_error(ctxt, outbuf, TE_ILLOPT, "Filename to long");
         return FAILED;
     }
     memcpy(ctxt->file_name, hdr->data, fnlen);
 
-    /* decode the TFTP transfer mode */
-    if (!str_mode)
-        return -EINVAL;
+    /* Get mode string by advancing pointer */
+    char* str_mode = (char*)hdr->data + fnlen;
+    DEBUG("tftp: incoming request '%s', mode: %s\n", ctxt->file_name, str_mode);
 
+    /* decode the TFTP transfer mode */
     for (uint32_t idx = 0; idx < ARRAY_LEN(_tftp_modes); ++idx) {
         if (memcmp(_tftp_modes[idx].name, str_mode, _tftp_modes[idx].len) == 0) {
             ctxt->mode = (tftp_mode_t)idx;
