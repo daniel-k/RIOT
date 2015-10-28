@@ -236,6 +236,8 @@ static int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf);
 /* decode the received error packet and calls the callback defined by the user */
 static int _tftp_decode_error(uint8_t *buf, tftp_err_codes_t *err, const char **err_msg);
 
+static int _tftp_server(tftp_context_t *ctxt);
+
 /* get the maximum allowed transfer unit to avoid 6Lo fragmentation */
 static uint16_t _tftp_get_maximum_block_size(void) {
     uint16_t tmp;
@@ -352,6 +354,26 @@ int _tftp_set_opts(tftp_context_t *ctxt, size_t blksize, uint16_t timeout, size_
     ctxt->use_options = true;
 
     return FINISHED;
+}
+
+int gnrc_tftp_server(tftp_data_callback data_cb, tftp_transfer_start_callback start_cb)
+{
+    /* Context will be initialized when a connection is established */
+    tftp_context_t ctxt;
+
+    assert(data_cb);
+    assert(start_cb);
+
+    ctxt.data_cb = data_cb;
+    ctxt.start_cb = start_cb;
+
+    /* start the server */
+    int ret = _tftp_server(&ctxt);
+
+    /* remove possibly stale timer */
+    xtimer_remove(&(ctxt.timer));
+
+    return ret;
 }
 
 int _tftp_server(tftp_context_t *ctxt) {
