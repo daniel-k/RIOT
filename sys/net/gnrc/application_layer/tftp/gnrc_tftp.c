@@ -395,6 +395,7 @@ int _tftp_server(tftp_context_t *ctxt) {
         while (ret == BUSY) {
             /* wait for a message */
             msg_receive(&msg);
+            DEBUG("tftp: message incoming\n");
             ret = _tftp_state_processes(ctxt, &msg);
 
             /* release packet if we received one */
@@ -431,6 +432,7 @@ int _tftp_do_client_transfer(tftp_context_t *ctxt) {
     /* try to start the TFTP transfer */
     ret = _tftp_state_processes(ctxt, NULL);
     if (ret != BUSY) {
+        DEBUG("tftp: transfer failed\n");
         /* if the start failed return */
         return ret;
     }
@@ -439,6 +441,7 @@ int _tftp_do_client_transfer(tftp_context_t *ctxt) {
     while (ret == BUSY) {
         /* wait for a message */
         msg_receive(&msg);
+        DEBUG("tftp: message received\n");
         ret = _tftp_state_processes(ctxt, &msg);
 
         /* release packet if we received one */
@@ -463,6 +466,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         return _tftp_send_start(ctxt, outbuf);
     }
     else if (m->type == TFTP_TIMEOUT_MSG) {
+        DEBUG("tftp: timeout occured\n");
         if (++(ctxt->retries) > GNRC_TFTP_MAX_RETRIES) {
             /* transfer failed due to lost peer */
             DEBUG("tftp: peer lost\n");
@@ -519,7 +523,9 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
 
         /* get the context of the client */
         ctxt->dst_port = byteorder_ntohs(udp->src_port);
+        DEBUG("tftp: client's port is %"PRIu16"\n", ctxt->dst_port);
         int offset = _tftp_decode_start(ctxt, data, outbuf);
+        DEBUG("tftp: offset after decode start = %i\n", offset);
         if (offset < 0) {
             DEBUG("tftp: there is no data?\n");
             gnrc_pktbuf_release(outbuf);
@@ -566,6 +572,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         /* try to process the data */
         int proc = _tftp_process_data(ctxt, pkt);
         if (proc <= 0) {
+            DEBUG("tftp: data not accepted\n");
             /* the data is not accepted return */
             gnrc_pktbuf_release(outbuf);
             return BUSY;
@@ -575,17 +582,20 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         if (!ctxt->block_nr && ctxt->dst_port == GNRC_TFTP_DEFAULT_DST_PORT) {
             /* no OACK received, restore default TFTP parameters */
             _tftp_set_default_options(ctxt);
+            DEBUG("tftp: restore default TFTP parameters\n");
 
             /* switch the destination port to the src port of the server */
             ctxt->dst_port = byteorder_ntohs(udp->src_port);
         }
 
         /* wait for the next data block */
+        DEBUG("tftp: wait for the next data block");
         ++(ctxt->block_nr);
         _tftp_send_dack(ctxt, outbuf, TO_ACK);
 
         /* check if the data transfer has finished */
         if (proc < ctxt->block_size) {
+            DEBUG("tftp: transfer finished\n");
             return FINISHED;
         }
 
@@ -622,11 +632,13 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         _tftp_decode_error(data, &err, &err_msg);
 
         /* inform the user what the error was ? */
+        DEBUG("tftp: ERROR: %s\n", err_msg);
         gnrc_pktbuf_release(outbuf);
         return FAILED;
     } break;
 
     case TO_OACK: {
+        DEBUG("tftp: TO_OACK received\n");
         /* decode the options */
         _tftp_decode_options(ctxt, pkt, 0);
 
@@ -702,6 +714,7 @@ tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcod
     pkt->opc = op;
 
     if (op == TO_DATA) {
+        DEBUG("tftp: getting data from callback\n");
         /* get the required data from the user */
         len = ctxt->data_cb(ctxt->block_size * ctxt->block_nr, pkt->data, ctxt->block_size);
     }
@@ -782,6 +795,7 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
 
     ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
     xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout * MS_IN_USEC, &(ctxt->timer_msg), thread_getpid());
+    DEBUG("tftp: set timeout %"PRIu32" ms\n", ctxt->block_timeout);
 
     return BUSY;
 }
@@ -867,16 +881,19 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
 
 int _tftp_process_data(tftp_context_t *ctxt, gnrc_pktsnip_t *buf) {
     tftp_packet_data_t *pkt = (tftp_packet_data_t*) buf->data;
+    DEBUG("tftp: processing data\n");
 
     uint16_t block_nr = byteorder_ntohs(pkt->block_nr);
 
     /* check if this is the packet we are waiting for */
     if (block_nr != (ctxt->block_nr + 1)) {
+        DEBUG("tftp: not the packet we were wating for\n");
         return BUSY;
     }
 
     /* send the user data trough to the user application */
     if (ctxt->data_cb(ctxt->block_nr * ctxt->block_size, pkt->data, buf->size - sizeof(tftp_packet_data_t)) < 0) {
+        DEBUG("tftp: error in data callback\n");
         return BUSY;
     }
 
