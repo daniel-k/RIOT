@@ -70,6 +70,11 @@ extern "C" {
 #define GNRC_TFTP_MAX_RETRIES               (5)
 #endif
 
+
+#ifndef GNRC_TFTP_DEFAULT_TIMEOUT
+#define GNRC_TFTP_DEFAULT_TIMEOUT           (1 * SEC_IN_USEC)
+#endif
+
 /**
  * @brief TFTP action to
  */

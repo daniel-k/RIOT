@@ -325,7 +325,7 @@ int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
 
     /* transport layer parameters */
     ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
-    ctxt->block_timeout = 1;
+    ctxt->block_timeout = GNRC_TFTP_DEFAULT_TIMEOUT;
 
     /* generate a random source UDP source port */
     do {
@@ -337,7 +337,8 @@ int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
 
 void _tftp_set_default_options(tftp_context_t *ctxt) {
     ctxt->block_size = GNRC_TFTP_MAX_TRANSFER_UNIT;
-    ctxt->timeout = 1;
+    ctxt->timeout = GNRC_TFTP_DEFAULT_TIMEOUT;
+    ctxt->block_timeout = GNRC_TFTP_DEFAULT_TIMEOUT;
     ctxt->transfer_size = 0;
     ctxt->use_options = false;
 }
@@ -589,7 +590,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
         }
 
         /* wait for the next data block */
-        DEBUG("tftp: wait for the next data block");
+        DEBUG("tftp: wait for the next data block\n");
         ++(ctxt->block_nr);
         _tftp_send_dack(ctxt, outbuf, TO_ACK);
 
@@ -717,10 +718,19 @@ tftp_state _tftp_send_dack(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, tftp_opcod
         DEBUG("tftp: getting data from callback\n");
         /* get the required data from the user */
         len = ctxt->data_cb(ctxt->block_size * ctxt->block_nr, pkt->data, ctxt->block_size);
+
+        /* enable timeout */
+        ctxt->block_timeout = ctxt->timeout;
     }
     else if (op == TO_OACK) {
         /* append the options */
         len = _tftp_append_options(ctxt, (tftp_header_t*)pkt, 0);
+
+        /* disable timeout*/
+        ctxt->block_timeout = 0;
+    } else if(op == TO_ACK) {
+        /* disable timeout*/
+        ctxt->block_timeout = 0;
     }
 
     /* send the data */
@@ -793,9 +803,12 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
         return FAILED;
     }
 
-    ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
-    xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout * MS_IN_USEC, &(ctxt->timer_msg), thread_getpid());
-    DEBUG("tftp: set timeout %"PRIu32" ms\n", ctxt->block_timeout);
+    /* only set timeout if enabled for this block */
+    if(ctxt->block_timeout != 0) {
+        ctxt->timer_msg.type = TFTP_TIMEOUT_MSG;
+        xtimer_set_msg(&(ctxt->timer), ctxt->block_timeout, &(ctxt->timer_msg), thread_getpid());
+        DEBUG("tftp: set timeout %"PRIu32" ms\n", ctxt->block_timeout / MS_IN_USEC);
+    }
 
     return BUSY;
 }
@@ -869,8 +882,8 @@ int _tftp_decode_options(tftp_context_t *ctxt, gnrc_pktsnip_t *buf, uint32_t sta
                     break;
 
                 case TOPT_TIMEOUT:
-                    DEBUG("tftp: got option TOPT_TIMEOUT\n");
-                    ctxt->timeout = atoi(value);
+                    ctxt->timeout = atoi(value) * SEC_IN_USEC;
+                    DEBUG("tftp: option TOPT_TIMEOUT = %"PRIu32" ms\n", ctxt->timeout / MS_IN_USEC);
                     break;
                 }
 
