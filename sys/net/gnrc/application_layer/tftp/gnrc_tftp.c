@@ -149,7 +149,7 @@ typedef struct {
     char file_name[GNRC_TFTP_MAX_FILENAME_LEN];
     tftp_mode_t mode;
     tftp_opcodes_t op;
-    ipv6_addr_t *peer;
+    ipv6_addr_t peer;
     xtimer_t timer;
     msg_t timer_msg;
     uint32_t timeout;
@@ -330,7 +330,7 @@ int _tftp_init_ctxt(ipv6_addr_t *addr, const char *file_name,
 
     /* set the default context parameters */
     ctxt->op = op;
-    ctxt->peer = addr;
+    memcpy(&(ctxt->peer), addr, sizeof(ctxt->peer));
     ctxt->mode = OCTET;
     ctxt->data_cb = data_cb;
     ctxt->start_cb = start_cb;
@@ -586,6 +586,7 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
             /* send the first data block */
             if (ctxt->op == TO_RRQ)
                 ++(ctxt->block_nr);
+
             state = _tftp_send_dack(ctxt, outbuf, (ctxt->op == TO_WRQ) ? TO_ACK : TO_DATA);
         }
 
@@ -832,7 +833,7 @@ tftp_state _tftp_send(gnrc_pktsnip_t *buf, tftp_context_t *ctxt, size_t len) {
     }
 
     /* allocate IPv6 header */
-    ip = gnrc_ipv6_hdr_build(udp, NULL, 0, ctxt->peer->u8, sizeof(ipv6_addr_t));
+    ip = gnrc_ipv6_hdr_build(udp, NULL, 0, ctxt->peer.u8, sizeof(ipv6_addr_t));
     if (ip == NULL) {
         DEBUG("dns: error unable to allocate IPv6 header");
         gnrc_pktbuf_release(udp);
