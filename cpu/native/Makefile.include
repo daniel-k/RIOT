@@ -5,4 +5,6 @@ ifeq ($(BUILDOSXNATIVE),1)
     export NATIVEINCLUDES += -I$(RIOTBASE)/sys/malloc/include
 endif
 
+export CFLAGS += -g -F dwarf2
+
 export USEMODULE += periph

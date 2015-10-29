@@ -73,28 +73,33 @@ typedef struct {
 /**
  * @brief TFTP opcodes
  */
-typedef enum {
-    TO_RRQ          = CT_HTONS(1),      /**< Read Request */
-    TO_WRQ          = CT_HTONS(2),      /**< Write Request */
-    TO_DATA         = CT_HTONS(3),      /**< Data */
-    TO_ACK          = CT_HTONS(4),      /**< Acknowledgment */
-    TO_ERROR        = CT_HTONS(5),      /**< Error */
-    TO_OACK         = CT_HTONS(6),      /**< Option ACK */
-} tftp_opcodes_t;
+
+//typedef enum {
+#define    TO_RRQ           CT_HTONS(1)      /**< Read Request */
+#define    TO_WRQ           CT_HTONS(2)      /**< Write Request */
+#define    TO_DATA          CT_HTONS(3)      /**< Data */
+#define    TO_ACK           CT_HTONS(4)      /**< Acknowledgment */
+#define    TO_ERROR         CT_HTONS(5)      /**< Error */
+#define    TO_OACK          CT_HTONS(6)      /**< Option ACK */
+//} tftp_opcodes_t;
+
+typedef unsigned tftp_opcodes_t;
 
 /**
  * @brief TFTP Error Codes
  */
-typedef enum {
-    TE_UN_DEF       = CT_HTONS(0),      /**< Not defined, see error message */
-    TE_NO_FILE      = CT_HTONS(1),      /**< File not found */
-    TE_ACCESS       = CT_HTONS(2),      /**< Access violation */
-    TE_DFULL        = CT_HTONS(3),      /**< Disk full or allocation exceeded */
-    TE_ILLOPT       = CT_HTONS(4),      /**< Illegal TFTP operation */
-    TE_UNKOWN_ID    = CT_HTONS(5),      /**< Unknown transfer ID */
-    TE_EXISTS       = CT_HTONS(6),      /**< File already exists */
-    TE_UNKOWN_USR   = CT_HTONS(7),      /**< No such user */
-} tftp_err_codes_t;
+//typedef enum {
+#define    TE_UN_DEF        CT_HTONS(0)      /**< Not defined, see error message */
+#define    TE_NO_FILE       CT_HTONS(1)      /**< File not found */
+#define    TE_ACCESS        CT_HTONS(2)      /**< Access violation */
+#define    TE_DFULL         CT_HTONS(3)      /**< Disk full or allocation exceeded */
+#define    TE_ILLOPT        CT_HTONS(4)      /**< Illegal TFTP operation */
+#define    TE_UNKOWN_ID     CT_HTONS(5)      /**< Unknown transfer ID */
+#define    TE_EXISTS        CT_HTONS(6)      /**< File already exists */
+#define    TE_UNKOWN_USR    CT_HTONS(7)      /**< No such user */
+//} tftp_err_codes_t;
+
+typedef unsigned tftp_err_codes_t;
 
 /**
  * @brief TFTP Transfer modes
