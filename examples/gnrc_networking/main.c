@@ -40,7 +40,7 @@ const char hello_world[] = "Hallo World,\
 \
 Welcome writing shit like a mofo to this TFTP server with loads of features";
 
-const char *addr = "fdcb:61::1";
+const char *addr = "affe::2";
 
 extern ssize_t write(int fildes, const void *buf, size_t nbyte);
 extern int udp_cmd(int argc, char **argv);
@@ -87,8 +87,25 @@ static bool _tftp_start_cb(tftp_action_t action, const char *file_name, size_t l
     return true;
 }
 
+static int _tftp_handler(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+
+    ipv6_addr_t ip;
+    ipv6_addr_from_str(&ip, addr);
+    puts("Trying to read with options enabled");
+    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_client_cb, _tftp_start_cb, true);
+
+    puts("Trying to read with options disabled");
+    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_client_cb, _tftp_start_cb, false);
+
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
     { "udp", "send data over UDP and listen on UDP ports", udp_cmd },
+    { "tftp", "test TFTP read", _tftp_handler },
     { NULL, NULL, NULL }
 };
 
@@ -115,33 +132,14 @@ int main(void)
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT network stack example application");
 
-    /* start shell */
-    puts("All up, running the shell now");
-    char line_buf[SHELL_DEFAULT_BUFSIZE];
-
-    ipv6_addr_t ip;
-    ipv6_addr_from_str(&ip, addr);
-    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_client_cb, _tftp_start_cb, true);
-
-    printf("\n\n\n\n\n");
-
-    gnrc_tftp_client_read(&ip, "welcome.txt", _tftp_data_client_cb, _tftp_start_cb, false);
-
-    printf("\n\n\n\n\n");
-
-    _tftp_start_cb(TFTP_WRITE, "welcome.write.txt", sizeof(hello_world));
-    gnrc_tftp_client_write(&ip, "welcome.write.txt", _tftp_data_client_cb, sizeof(hello_world), true);
-
-    printf("\n\n\n\n\n");
-
-    _tftp_start_cb(TFTP_WRITE, "welcome.write.txt", sizeof(hello_world));
-    gnrc_tftp_client_write(&ip, "welcome.write.txt", _tftp_data_client_cb, sizeof(hello_world), false);
-
     thread_create(tftp_stack, sizeof(tftp_stack),
             1,
             CREATE_WOUT_YIELD | CREATE_STACKTEST,
             tftp_server_wrapper, NULL, tftp_name);
 
+    /* start shell */
+    puts("All up, running the shell now");
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
