@@ -584,7 +584,8 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
             }
 
             /* send the first data block */
-            ++(ctxt->block_nr);
+            if (ctxt->op == TO_RRQ)
+                ++(ctxt->block_nr);
             state = _tftp_send_dack(ctxt, outbuf, (ctxt->op == TO_WRQ) ? TO_ACK : TO_DATA);
         }
 
