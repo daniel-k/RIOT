@@ -578,11 +578,6 @@ tftp_state _tftp_state_processes(tftp_context_t *ctxt, msg_t *m) {
             /* the client didn't send options, use ACK and set defaults */
             _tftp_set_default_options(ctxt);
 
-            /* inform the listener that we are reading */
-            if (ctxt->start_cb) {
-                ctxt->start_cb(TFTP_READ, ctxt->file_name, 0);
-            }
-
             /* send the first data block */
             if (ctxt->op == TO_RRQ)
                 ++(ctxt->block_nr);
