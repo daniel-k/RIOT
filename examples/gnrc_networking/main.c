@@ -47,7 +47,7 @@ extern int udp_cmd(int argc, char **argv);
 
 tftp_action_t currentAction;
 
-static int _tftp_data_client_cb(uint32_t offset, void *data, uint32_t data_len) {
+static int _tftp_data_client_cb(uint32_t offset, void *data, size_t data_len) {
     char *c = (char*) data;
 
     if (currentAction == TFTP_WRITE)
@@ -63,7 +63,7 @@ static int _tftp_data_client_cb(uint32_t offset, void *data, uint32_t data_len) 
         return write(STDOUT_FILENO, c, data_len);
 }
 
-static int _tftp_data_server_cb(uint32_t offset, void *data, uint32_t data_len) {
+static int _tftp_data_server_cb(uint32_t offset, void *data, size_t data_len) {
     char *c = (char*) data;
 
     if (currentAction == TFTP_READ)
