@@ -12,6 +12,27 @@ BOARD_INSUFFICIENT_MEMORY := airfy-beacon chronos msb-430 msb-430h nrf51dongle \
                           stm32f0discovery telosb weio wsn430-v1_3b wsn430-v1_4 \
                           yunjia-nrf51822 z1
 
+ifneq (native,$(BOARD))
+ifeq (,$(SLIP_UART))
+	# set default (last available UART)
+	SLIP_UART="(UART_NUMOF-1)"
+endif
+ifeq (,$(SLIP_BAUDRATE))
+	# set default
+	SLIP_BAUDRATE=115200
+endif
+
+GNRC_NETIF_NUMOF := 2
+INCLUDES += -I$(CURDIR)
+CFLAGS += -DSLIP_UART=$(SLIP_UART)
+CFLAGS += -DSLIP_BAUDRATE=$(SLIP_BAUDRATE)
+
+USEMODULE += gnrc_slip
+
+endif
+
+
+
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
 USEMODULE += gnrc_netif_default
