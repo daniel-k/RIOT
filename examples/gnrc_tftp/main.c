@@ -26,16 +26,16 @@
 #include "shell.h"
 #include "msg.h"
 
-extern int tftp_client_cmd(int argc, char **argv);
-extern int tftp_server_cmd(int argc, char **argv);
+extern int tftp_client_cmd(int argc, char * *argv);
+extern int tftp_server_cmd(int argc, char * *argv);
 
 #define MAIN_QUEUE_SIZE     (4)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
 static const shell_command_t shell_commands[] = {
-    { "tftpc", "get/put data to a TFTP server", tftp_client_cmd },
+    { "tftpc", "get/put data to a TFTP server",	 tftp_client_cmd },
     { "tftps", "start and stop the TFTP server", tftp_server_cmd },
-    { NULL, NULL, NULL }
+    { NULL,	   NULL,							 NULL			 }
 };
 
 int main(void)
