@@ -23,8 +23,17 @@
 #include <unistd.h>
 #include <inttypes.h>
 
+#include <periph/nvm.h>
+
 #include "thread.h"
 #include "net/gnrc/tftp.h"
+
+extern char _sota;
+extern char _eota;
+
+#define TFTP_BUFFER_SIZE        (256)
+static char tftp_buffer[TFTP_BUFFER_SIZE];
+static char* buf = tftp_buffer;
 
 /* the message queues */
 #define TFTP_QUEUE_SIZE     (4)
@@ -62,6 +71,7 @@ static bool _tftp_server_start_cb(tftp_action_t action, tftp_mode_t mode,
     const char *str_action = "read";
     if (action == TFTP_WRITE) {
         str_action = "write";
+        buf = tftp_buffer;
     }
 
     /* display the action being performed */
@@ -100,6 +110,15 @@ static int _tftp_server_data_cb(uint32_t offset, void *data, size_t data_len)
         return data_len;
     }
     else {
+        size_t offset = buf - tftp_buffer;
+        if(offset >= sizeof(tftp_buffer)) {
+            puts("Internal buffer overflow, dropping data");
+            return 0;
+        }
+
+        memcpy(buf + offset, c, data_len);
+        buf += data_len;
+
         /* we received a data block which we output to the console */
         return printf("\n -- SERVER DATA --\n%*s\n -- SERVER DATA --\n", data_len, c) - (sizeof("\n -- SERVER DATA --\n%*s\n -- SERVER DATA --\n") - 4);
     }
@@ -126,6 +145,10 @@ static void _tftp_server_stop_cb(tftp_event_t event, const char *msg)
 
     /* print the transfer result to the console */
     printf("tftp_server: %s: %s\n", cause, msg);
+
+    puts("Now write to flash!");
+
+    nvm_write_erase(&_sota, tftp_buffer, buf - tftp_buffer);
 }
 
 /**
