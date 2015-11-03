@@ -103,6 +103,18 @@ SECTIONS
         KEEP (*(.eh_frame))
     } > rom
 
+    .ota :
+    {
+        . = ALIGN(256);
+        _sota = .;
+    
+        /* Expand section to 4k */
+        . = . + 4096;
+        
+        . = ALIGN(256);
+        _eota = .;
+    } > rom
+
     . = ALIGN(4);
     _etext = .;
 
