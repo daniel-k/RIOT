@@ -128,6 +128,8 @@ void lwmac_set_state(lwmac_state_t newstate)
     case SLEEPING:
         /* Put transceiver to sleep */
         _set_netdev_state(&lwmac, NETOPT_STATE_SLEEP);
+        /* We may have come here through RTT handler, so timeout may still be active */
+        lwmac_clear_timeout(&lwmac, TIMEOUT_WAKEUP_PERIOD);
         /* Return immediately, so no rescheduling */
         return;
 
