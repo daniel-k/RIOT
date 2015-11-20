@@ -23,6 +23,7 @@
 #include "thread.h"
 #include "net/gnrc/nomac.h"
 #include "net/gnrc.h"
+#include <stdbool.h>
 
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
@@ -31,6 +32,13 @@
 /* For PRIu16 etc. */
 #include <inttypes.h>
 #endif
+
+bool tx_complete = true;
+
+bool is_tx_complete(void)
+{
+    return tx_complete;
+}
 
 /**
  * @brief   Function called by the device driver on device events
@@ -42,7 +50,9 @@ static void _event_cb(gnrc_netdev_event_t event, void *data)
 {
     DEBUG("nomac: event triggered -> %i\n", event);
     /* NOMAC only understands the RX_COMPLETE event... */
-    if (event == NETDEV_EVENT_RX_COMPLETE) {
+    if(event == NETDEV_EVENT_TX_COMPLETE) {
+        tx_complete = true;
+    } else if (event == NETDEV_EVENT_RX_COMPLETE) {
         gnrc_pktsnip_t *pkt;
 
         /* get pointer to the received packet */
@@ -77,6 +87,9 @@ static void *_nomac_thread(void *args)
     /* register the event callback with the device driver */
     dev->driver->add_event_callback(dev, _event_cb);
 
+    netopt_enable_t enable = NETOPT_ENABLE;
+    dev->driver->set(dev, NETOPT_TX_END_IRQ, &enable, sizeof(enable));
+
     /* start the event loop */
     while (1) {
         DEBUG("nomac: waiting for incoming messages\n");
@@ -89,6 +102,7 @@ static void *_nomac_thread(void *args)
                 break;
             case GNRC_NETAPI_MSG_TYPE_SND:
                 DEBUG("nomac: GNRC_NETAPI_MSG_TYPE_SND received\n");
+                tx_complete = false;
                 dev->driver->send_data(dev, (gnrc_pktsnip_t *)msg.content.ptr);
                 break;
             case GNRC_NETAPI_MSG_TYPE_SET:

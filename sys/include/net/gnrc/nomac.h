@@ -33,7 +33,7 @@ extern "C" {
  * @brief   Set the default message queue size for NOMAC layers
  */
 #ifndef GNRC_NOMAC_MSG_QUEUE_SIZE
-#define GNRC_NOMAC_MSG_QUEUE_SIZE       (8U)
+#define GNRC_NOMAC_MSG_QUEUE_SIZE       (32U)
 #endif
 
 /**
