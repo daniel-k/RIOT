@@ -17,6 +17,8 @@
  * @}
  */
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <net/gnrc.h>
 #include <net/gnrc/lwmac/lwmac.h>
 #include <net/gnrc/lwmac/packet_queue.h>
@@ -119,4 +121,11 @@ void packet_queue_flush(packet_queue_t* q)
         _free_node(node);
     }
     q->length = 0;
+}
+
+/******************************************************************************/
+
+bool packet_queue_is_full(packet_queue_t* q)
+{
+    return (_alloc_node(q, NULL) == NULL);
 }

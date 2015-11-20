@@ -56,7 +56,14 @@
 /******************************************************************************/
 
 /* Internal state of lwMAC */
-static lwmac_t lwmac = LWMAC_INIT;
+lwmac_t lwmac = LWMAC_INIT;
+
+/******************************************************************************/
+
+bool lwmac_tx_queue_is_full(void)
+{
+    return packet_queue_is_full(&(lwmac.tx.neighbours[0].queue));
+}
 
 /******************************************************************************/
 

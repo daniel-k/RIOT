@@ -60,6 +60,8 @@ void packet_queue_init(packet_queue_t* q,
                        packet_queue_node_t buffer[],
                        size_t buffer_size);
 
+bool packet_queue_is_full(packet_queue_t* q);
+
 #ifdef __cplusplus
 }
 #endif
