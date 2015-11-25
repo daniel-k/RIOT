@@ -166,7 +166,6 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
         lwmac_hdr.header.type = FRAMETYPE_WA;
         lwmac_hdr.dst_addr = lwmac->rx.l2_addr;
 
-
         pkt = gnrc_pktbuf_add(NULL, &lwmac_hdr, sizeof(lwmac_hdr), GNRC_NETTYPE_LWMAC);
         if(pkt == NULL) {
             LOG_ERROR("Cannot allocate pktbuf of type GNRC_NETTYPE_LWMAC\n");
@@ -289,7 +288,10 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
         }
 
         /* If WA got lost we wait for data but we will be hammered with WR
-         * packets. So a WR indicates a lost WA => reset RX state machine
+         * packets. So a WR indicates a lost WA => reset RX state machine.
+         *
+         * TODO: Destination may assume a wrong wakeup phase then. Maybe send a
+         *       delta time to get the timing right again.
          */
         if(found_wr) {
             LOG_INFO("WA probably got lost, reset RX state machine\n");
@@ -301,7 +303,11 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
 
         /* Only timeout if no packet (presumably the expected data) is being
          * received. This won't be blocked by WRs as they restart the state
-         * machine (see above). */
+         * machine (see above).
+         *
+         * TODO: Checking for expiration only works once and clears the timeout.
+         *       If this is a false positive (other packet than DATA), we're
+         *       stuck. */
         if( (lwmac_timeout_is_expired(lwmac, TIMEOUT_DATA)) &&
             (!lwmac->rx_started) ) {
             LOG_INFO("DATA timed out\n");
