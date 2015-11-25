@@ -116,6 +116,11 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
                 continue;
             }
 
+            /* TODO:
+             * If we see a WA here we have a rough clue about the wakeup phase
+             * of this node. But there is no timestamping of incoming frames yet
+             * so maybe add a timestamp to every frame in event callback. */
+
             if(info.header->type != FRAMETYPE_WR) {
                 LOG_DEBUG("Packet is not WR: 0x%02x\n", info.header->type);
                 gnrc_pktbuf_release(pkt);
