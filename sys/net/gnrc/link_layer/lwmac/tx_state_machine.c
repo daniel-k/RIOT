@@ -285,6 +285,7 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
         gnrc_pktsnip_t* pkt;
         bool found_wa = false;
         bool postponed = false;
+        bool from_expected_destination = false;
 
         if(lwmac_timeout_is_expired(lwmac, TIMEOUT_NO_RESPONSE)) {
             LOG_DEBUG("No response from destination\n");
@@ -314,6 +315,10 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
                 continue;
             }
 
+            if(_addr_match(&info.src_addr, &lwmac->tx.current_neighbour->l2_addr)) {
+                from_expected_destination = true;
+            }
+
             if(info.header->type == FRAMETYPE_BROADCAST) {
                 _dispatch_defer(lwmac->rx.dispatch_buffer, pkt);
                 /* Drop pointer to it can't get released */
@@ -324,7 +329,7 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
              * after a finished transaction so there's no point in trying any
              * further now. */
             if( !_addr_match(&info.dst_addr, &lwmac->l2_addr) &&
-                 _addr_match(&info.src_addr, &lwmac->tx.current_neighbour->l2_addr)) {
+                 from_expected_destination) {
                 _queue_tx_packet(lwmac, lwmac->tx.packet);
                 /* drop pointer so it wont be free'd */
                 lwmac->tx.packet = NULL;
@@ -346,7 +351,7 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
             /* No need to keep pkt anymore */
             gnrc_pktbuf_release(pkt);
 
-            if(!_addr_match(&lwmac->tx.current_neighbour->l2_addr, &info.src_addr)) {
+            if(!from_expected_destination) {
                 LOG_DEBUG("Packet is not from expected destination\n");
                 break;
             }
