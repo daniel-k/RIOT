@@ -194,11 +194,14 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
         netopt_enable_t autoack = NETOPT_DISABLE;
         lwmac->netdev->driver->set(lwmac->netdev, NETOPT_AUTOACK, &autoack, sizeof(autoack));
 
+        /* We might have taken too long to answer the WR so we're receiving the
+         * next one already. Don't send WA yet and go back to WR reception.
+         * TODO: Is this really neccessary?
+         */
         if(_get_netdev_state(lwmac) == NETOPT_STATE_RX) {
             LOG_WARNING("Receiving now, so cancel sending WA\n");
             gnrc_pktbuf_release(pkt);
-            GOTO_RX_STATE(RX_STATE_WAIT_FOR_DATA, false);
-            break;
+            GOTO_RX_STATE(RX_STATE_WAIT_FOR_WR, false);
         }
 
         /* Send WA */
