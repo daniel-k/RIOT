@@ -323,7 +323,8 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
             /* Check if destination is talking to another node. It will sleep
              * after a finished transaction so there's no point in trying any
              * further now. */
-            if(!_addr_match(&lwmac->l2_addr, &info.dst_addr)) {
+            if( !_addr_match(&info.dst_addr, &lwmac->l2_addr) &&
+                 _addr_match(&info.src_addr, &lwmac->tx.current_neighbour->l2_addr)) {
                 _queue_tx_packet(lwmac, lwmac->tx.packet);
                 /* drop pointer so it wont be free'd */
                 lwmac->tx.packet = NULL;
