@@ -333,7 +333,6 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
             }
 
             if(info.header->type == FRAMETYPE_BROADCAST) {
-                _dispatch_defer(lwmac->rx.dispatch_buffer, pkt);
                 continue;
             }
 
