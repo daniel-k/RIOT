@@ -127,6 +127,12 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     at86rf2xx_set_addr_long(dev, AT86RF2XX_DEFAULT_ADDR_LONG);
     at86rf2xx_set_addr_short(dev, AT86RF2XX_DEFAULT_ADDR_SHORT);
 #endif
+
+    for (int i = 0; i < CPUID_ID_LEN; i++) {
+        dev->seq_nr += cpuid[i];
+    }
+    printf("seq nr = %u\n", dev->seq_nr);
+
     /* set default PAN id */
     at86rf2xx_set_pan(dev, AT86RF2XX_DEFAULT_PANID);
     /* set default channel */
