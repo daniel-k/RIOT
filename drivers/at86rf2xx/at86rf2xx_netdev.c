@@ -841,11 +841,13 @@ static void _isr_event(gnrc_netdev_t *device, uint32_t event_type)
                     AT86RF2XX_TRX_STATE_MASK__TRAC;
 
     if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__RX_START) {
+        dev->trx_end_pending = true;
         dev->event_cb(NETDEV_EVENT_RX_STARTED, NULL);
         DEBUG("[at86rf2xx] EVT - RX_START\n");
     }
 
     if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__TRX_END) {
+        dev->trx_end_pending = false;
         if(state == AT86RF2XX_STATE_RX_AACK_ON ||
            state == AT86RF2XX_STATE_BUSY_RX_AACK) {
             DEBUG("[at86rf2xx] EVT - RX_END\n");
