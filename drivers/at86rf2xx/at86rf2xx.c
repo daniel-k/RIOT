@@ -59,6 +59,7 @@ int at86rf2xx_init(at86rf2xx_t *dev, spi_t spi, spi_speed_t spi_speed,
     dev->reset_pin = reset_pin;
     dev->idle_state = AT86RF2XX_STATE_TRX_OFF;
     dev->state = AT86RF2XX_STATE_SLEEP;
+    dev->trx_end_pending = false;
 
     /* initialise SPI */
     spi_init_master(dev->spi, SPI_CONF_FIRST_RISING, spi_speed);
@@ -229,8 +230,13 @@ void at86rf2xx_tx_prepare(at86rf2xx_t *dev)
     while (state == AT86RF2XX_STATE_BUSY_TX_ARET);
 
     /* if receiving cancel */
-    if(state == AT86RF2XX_STATE_BUSY_RX_AACK) {
-        at86rf2xx_force_trx_off(dev);
+    if( (state == AT86RF2XX_STATE_BUSY_RX_AACK)) {
+        if(dev->trx_end_pending) {
+            at86rf2xx_force_trx_off(dev);
+        } else {
+            /* wait for ACK to be sent */
+            while(at86rf2xx_get_status(dev) != AT86RF2XX_STATE_RX_AACK_ON);
+        }
         dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;
     } else if (state != AT86RF2XX_STATE_TX_ARET_ON) {
         dev->idle_state = state;

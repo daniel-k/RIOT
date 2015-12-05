@@ -28,6 +28,7 @@
 #define AT86RF2XX_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "board.h"
 #include "periph/spi.h"
@@ -156,6 +157,7 @@ typedef struct {
     uint8_t addr_long[8];               /**< the radio's long address */
     uint16_t options;                   /**< state of used options */
     uint8_t idle_state;                 /**< state to return to after sending */
+    bool trx_end_pending;
 } at86rf2xx_t;
 
 /**
