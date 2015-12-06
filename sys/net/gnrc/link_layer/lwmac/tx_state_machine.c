@@ -131,6 +131,7 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
 
         if(lwmac_timeout_is_running(lwmac, TIMEOUT_BROADCAST_END)) {
             if(lwmac_timeout_is_expired(lwmac, TIMEOUT_BROADCAST_END)) {
+                lwmac_clear_timeout(lwmac, TIMEOUT_NEXT_BROADCAST);
                 gnrc_pktbuf_release(pkt);
                 lwmac->tx.packet = NULL;
                 GOTO_TX_STATE(TX_STATE_SUCCESSFUL, true);
@@ -152,7 +153,6 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
 
             first = true;
         }
-
 
         if( lwmac_timeout_is_expired(lwmac, TIMEOUT_NEXT_BROADCAST) ||
             first ) {
