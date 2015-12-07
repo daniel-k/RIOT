@@ -208,6 +208,10 @@ void auto_init(void)
     extern void auto_init_l3g4200d(void);
     auto_init_l3g4200d();
 #endif
+#ifdef MODULE_AT30TSE75X
+    extern void auto_init_at30tse75x(void);
+    auto_init_at30tse75x();
+#endif
 
 #endif /* MODULE_AUTO_INIT_SAUL */
 }
