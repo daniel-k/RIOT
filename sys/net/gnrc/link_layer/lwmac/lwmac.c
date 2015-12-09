@@ -27,6 +27,7 @@
 #include <thread.h>
 #include <timex.h>
 #include <periph/rtt.h>
+#include <periph/gpio.h>
 #include <net/gnrc.h>
 #include <net/gnrc/lwmac/lwmac.h>
 #include <net/gnrc/lwmac/packet_queue.h>
@@ -374,6 +375,7 @@ void rtt_handler(uint32_t event)
     switch(event & 0xffff)
     {
     case LWMAC_EVENT_RTT_WAKEUP_PENDING:
+    	gpio_toggle(GPIO_PIN(PA, 14));
         lwmac.last_wakeup = rtt_get_alarm();
         alarm = _next_inphase_event(lwmac.last_wakeup, RTT_US_TO_TICKS(LWMAC_WAKEUP_DURATION_US));
         rtt_set_alarm(alarm, rtt_cb, (void*) LWMAC_EVENT_RTT_SLEEP_PENDING);
@@ -382,6 +384,7 @@ void rtt_handler(uint32_t event)
         break;
 
     case LWMAC_EVENT_RTT_SLEEP_PENDING:
+//    	gpio_clear(GPIO_PIN(PA, 14));
         alarm = _next_inphase_event(lwmac.last_wakeup, RTT_US_TO_TICKS(LWMAC_WAKEUP_INTERVAL_US));
         rtt_set_alarm(alarm, rtt_cb, (void*) LWMAC_EVENT_RTT_WAKEUP_PENDING);
         lpm_prevent_sleep &= ~(LWMAC_LPM_MASK);
@@ -509,6 +512,9 @@ static void *_lwmac_thread(void *args)
     msg_t msg, reply, msg_queue[LWMAC_IPC_MSG_QUEUE_SIZE];
 
     LOG_INFO("Starting lwMAC\n");
+
+    gpio_init(GPIO_PIN(PA, 14), GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_clear(GPIO_PIN(PA, 14));
 
     /* RTT is used for scheduling wakeup */
     rtt_init();
