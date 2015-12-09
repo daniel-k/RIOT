@@ -9,6 +9,8 @@ BOARD_INSUFFICIENT_MEMORY := stm32f0discovery
 BOARD_BLACKLIST        := nucleo-f334
 # nucleo-f334:  not enough GPIO pins defined
 
+CFLAGS += -DLWMAC_WAKEUP_INTERVAL_US="(10000U * 1000)"
+
 ifneq (,$(filter samr21-xpro,$(BOARD)))
   DRIVER ?= at86rf233
   USE_BOARD_PARAMETERS:=false
