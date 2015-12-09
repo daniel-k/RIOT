@@ -149,6 +149,8 @@ extern "C" {
 #endif
 
 
+#define LWMAC_LPM_MASK					(1 << 17)
+
 /**
  * @brief   Initialize an instance of the LWMAC layer
  *
