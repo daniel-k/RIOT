@@ -57,8 +57,8 @@ void lwmac_rx_start(lwmac_t* lwmac)
     assert(lwmac->rx.l2_addr.len == 0);
 
     /* Don't attempt to send a WA if channel is busy to get timings right */
-    uint8_t csma_retries = 0;
-    lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA_RETRIES, &csma_retries, sizeof(csma_retries));
+    netopt_enable_t csma_disable = NETOPT_DISABLE;
+    lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA, &csma_disable, sizeof(csma_disable));
 
     lwmac->rx.state = RX_STATE_INIT;
 }

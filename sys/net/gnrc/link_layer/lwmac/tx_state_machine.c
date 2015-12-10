@@ -101,28 +101,28 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
     {
     case TX_STATE_INIT:
     {
-        lwmac_tx_state_t next_state = TX_STATE_FAILED;
-        uint8_t csma_retries;
-
         lwmac_clear_timeout(lwmac, TIMEOUT_WR);
         lwmac_clear_timeout(lwmac, TIMEOUT_NO_RESPONSE);
         lwmac_clear_timeout(lwmac, TIMEOUT_NEXT_BROADCAST);
         lwmac_clear_timeout(lwmac, TIMEOUT_BROADCAST_END);
 
         if(_packet_is_broadcast(lwmac->tx.packet)) {
-            csma_retries = LWMAC_BROADCAST_CSMA_RETRIES;
-            next_state = TX_STATE_SEND_BROADCAST;
+            /* Set CSMA retries as configured and enable */
+            uint8_t csma_retries = LWMAC_BROADCAST_CSMA_RETRIES;
+            lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA_RETRIES,
+                                        &csma_retries, sizeof(csma_retries));
+            netopt_enable_t csma_enable = NETOPT_ENABLE;
+            lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA, &csma_enable, sizeof(csma_enable));
+
+            GOTO_TX_STATE(TX_STATE_SEND_BROADCAST, true);
         } else {
             /* Don't attempt to send a WR if channel is busy to get timings
              * right, will be changed for sending DATA packet */
-            csma_retries = 0;
-            next_state = TX_STATE_SEND_WR;
+            netopt_enable_t csma_disable = NETOPT_DISABLE;
+            lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA, &csma_disable, sizeof(csma_disable));
+
+            GOTO_TX_STATE(TX_STATE_SEND_WR, true);
         }
-
-        lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA_RETRIES,
-                                    &csma_retries, sizeof(csma_retries));
-
-        GOTO_TX_STATE(next_state, true);
     }
     case TX_STATE_SEND_BROADCAST:
     {
@@ -400,6 +400,9 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
          * destination is waiting for a certain amount of time. */
         uint8_t csma_retries = LWMAC_DATA_CSMA_RETRIES;
         lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA_RETRIES, &csma_retries, sizeof(csma_retries));
+
+        netopt_enable_t csma_enable = NETOPT_ENABLE;
+        lwmac->netdev->driver->set(lwmac->netdev, NETOPT_CSMA, &csma_enable, sizeof(csma_enable));
 
         /* Insert lwMAC header above NETIF header */
         lwmac_hdr_t hdr = {FRAMETYPE_DATA};
