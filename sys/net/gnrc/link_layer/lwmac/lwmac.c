@@ -200,6 +200,7 @@ bool lwmac_update(void)
                 break;
             }
 
+            // TODO: Profile this function, high runtime expected
             lwmac_tx_neighbour_t* neighbour = _next_tx_neighbour(&lwmac);
 
             if(neighbour != NULL) {
@@ -338,7 +339,13 @@ bool lwmac_update(void)
             lwmac_tx_update(&lwmac);
         }
 
-        /* If state has changed, reschedule main state machine */
+        /* If state has changed, reschedule main state machine
+         * BUG: when done (success/failed), this causes another update although
+         *      lwmac_set_state doesn't reschedule an update when setting SLEEPING
+         *
+         *      If packets are still present, transmission continues and blocks
+         *      receiving / next wakeup in favor of transmission.
+         */
         if(state_tx != lwmac.tx.state)
         {
             lwmac_schedule_update();
@@ -473,7 +480,8 @@ static void _event_cb(gnrc_netdev_event_t event, void *data)
     case NETDEV_EVENT_TX_STARTED:
         lwmac.tx_feedback = TX_FEEDBACK_UNDEF;
         lwmac.rx_started = false;
-        lwmac_schedule_update();
+        // really? this seems like another bug
+//        lwmac_schedule_update();
         break;
     case NETDEV_EVENT_TX_COMPLETE:
         lwmac.tx_feedback = TX_FEEDBACK_SUCCESS;

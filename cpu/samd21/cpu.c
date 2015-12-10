@@ -44,6 +44,17 @@ static void clk_init(void)
     SYSCTRL->OSC8M.bit.ENABLE = 1;
     while (!(SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY));
 
+//    SYSCTRL->BOD33.bit.ENABLE = 0;
+//    SYSCTRL->BOD33.bit.RUNSTDBY = 0;
+//    while(!(SYSCTRL->PCLKSR.bit.B33SRDY));
+//
+//    SYSCTRL->VREG.bit.RUNSTDBY = 0;
+//    SYSCTRL->VREG.bit.FORCELDO = 0;
+//
+//    SYSCTRL->XOSC.bit.ENABLE = 0;
+//    SYSCTRL->XOSC.bit.RUNSTDBY = 0;
+
+
 #if CLOCK_USE_PLL
     /* reset the GCLK module so it is in a known state */
     GCLK->CTRL.reg = GCLK_CTRL_SWRST;

@@ -148,7 +148,7 @@ int gpio_init_int(gpio_t pin, gpio_pp_t pullup, gpio_flank_t flank,
     PM->APBAMASK.reg |= PM_APBAMASK_EIC;
     GCLK->CLKCTRL.reg = (EIC_GCLK_ID |
                          GCLK_CLKCTRL_CLKEN |
-                         GCLK_CLKCTRL_GEN_GCLK0);
+						 GCLK_CLKCTRL_GEN_GCLK2);
     while (GCLK->STATUS.bit.SYNCBUSY);
     /* configure the active flank */
     EIC->CONFIG[exti >> 3].reg &= ~(0xf << ((exti & 0x7) * 4));
