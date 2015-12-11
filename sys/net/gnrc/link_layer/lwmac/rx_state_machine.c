@@ -196,12 +196,15 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
         /* We might have taken too long to answer the WR so we're receiving the
          * next one already. Don't send WA yet and go back to WR reception.
          * TODO: Is this really neccessary?
+         *
+         * This should not happen for WRs if the timing has been determined
+         * correctly.
          */
-        if(_get_netdev_state(lwmac) == NETOPT_STATE_RX) {
-            LOG_WARNING("Receiving now, so cancel sending WA\n");
-            gnrc_pktbuf_release(pkt);
-            GOTO_RX_STATE(RX_STATE_WAIT_FOR_WR, false);
-        }
+//        if(_get_netdev_state(lwmac) == NETOPT_STATE_RX) {
+//            LOG_WARNING("Receiving now, so cancel sending WA\n");
+//            gnrc_pktbuf_release(pkt);
+//            GOTO_RX_STATE(RX_STATE_WAIT_FOR_WR, false);
+//        }
 
         /* Send WA */
         lwmac->netdev->driver->send_data(lwmac->netdev, pkt);
