@@ -263,10 +263,11 @@ static bool _lwmac_tx_update(lwmac_t* lwmac)
 
         lwmac->tx.wr_sent++;
 
-        if(lwmac->tx_feedback == TX_FEEDBACK_BUSY) {
-            LOG_DEBUG("WR could not be sent, retry\n");
-            GOTO_TX_STATE(TX_STATE_SEND_WR, true);
-        }
+        /* This is not needed anymore, because WRs are sent without CSMA/CA */
+//        if(lwmac->tx_feedback == TX_FEEDBACK_BUSY) {
+//            LOG_DEBUG("WR could not be sent, retry\n");
+//            GOTO_TX_STATE(TX_STATE_SEND_WR, true);
+//        }
 
         /* Set timeout for next WR in case no WA will be received */
         lwmac_set_timeout(lwmac, TIMEOUT_WR, LWMAC_TIME_BETWEEN_WR_US);
