@@ -222,11 +222,12 @@ static bool _lwmac_rx_update(lwmac_t* lwmac)
             break;
         }
 
-        /* WA wasn't sent, so restart state machine */
-        if(lwmac->tx_feedback == TX_FEEDBACK_BUSY) {
-            LOG_WARNING("WA could not be sent. Wait for next WR\n");
-            GOTO_RX_STATE(RX_STATE_FAILED, true);
-        }
+        /* This is not needed anymore, because WAs are sent without CSMA/CA */
+//        /* WA wasn't sent, so restart state machine */
+//        if(lwmac->tx_feedback == TX_FEEDBACK_BUSY) {
+//            LOG_WARNING("WA could not be sent. Wait for next WR\n");
+//            GOTO_RX_STATE(RX_STATE_FAILED, true);
+//        }
 
         /* Set timeout for expected data arrival */
         lwmac_set_timeout(lwmac, TIMEOUT_DATA, LWMAC_DATA_DELAY_US);
