@@ -470,7 +470,7 @@ static void _event_cb(gnrc_netdev_event_t event, void *data)
     case NETDEV_EVENT_TX_STARTED:
         lwmac.tx_feedback = TX_FEEDBACK_UNDEF;
         lwmac.rx_started = false;
-        lwmac_schedule_update();
+//        lwmac_schedule_update();
         break;
     case NETDEV_EVENT_TX_COMPLETE:
         lwmac.tx_feedback = TX_FEEDBACK_SUCCESS;
