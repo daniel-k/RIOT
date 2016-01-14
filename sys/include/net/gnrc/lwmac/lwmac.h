@@ -107,7 +107,7 @@ extern "C" {
 
 /* Max link layer address length in bytes */
 #ifndef LWMAC_MAX_L2_ADDR_LEN
-#define LWMAC_MAX_L2_ADDR_LEN           (2U)
+#define LWMAC_MAX_L2_ADDR_LEN           (8U)
 #endif
 
 /* CSMA retries for DATA packet after WR->WA was successful. Too many retries
