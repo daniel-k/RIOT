@@ -415,3 +415,7 @@ endif
 ifneq (,$(filter phydat,$(USEMODULE)))
   USEMODULE += fmt
 endif
+
+ifneq (,$(filter gnrc_lwmac,$(USEMODULE)))
+  USEMODULE += xtimer
+  endif
