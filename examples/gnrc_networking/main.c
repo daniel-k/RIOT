@@ -22,6 +22,8 @@
 
 #include "shell.h"
 #include "msg.h"
+#include "net/ipv6.h"
+#include "net/gnrc/ipv6/netif.h"
 
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
@@ -39,6 +41,10 @@ int main(void)
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT network stack example application");
+
+    ipv6_addr_t ip_addr;
+    ipv6_addr_from_str(&ip_addr, "affe::4");
+    gnrc_ipv6_netif_add_addr(7, &ip_addr, 0, 0);
 
     /* start shell */
     puts("All up, running the shell now");
