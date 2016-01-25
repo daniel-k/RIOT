@@ -19,6 +19,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "shell.h"
 #include "msg.h"
@@ -37,14 +38,32 @@ static const shell_command_t shell_commands[] = {
 
 int main(void)
 {
-    /* we need a message queue for the thread running the shell in order to
+    ipv6_addr_t ip_addr;
+
+	/* we need a message queue for the thread running the shell in order to
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT network stack example application");
 
-    ipv6_addr_t ip_addr;
-    ipv6_addr_from_str(&ip_addr, "affe::4");
-    gnrc_ipv6_netif_add_addr(7, &ip_addr, 0, 0);
+    // Board discovery
+    if(strcmp("ATML2127031800001673", SERIAL) == 0) {
+		puts("I'm board 1");
+		ipv6_addr_from_str(&ip_addr, "affe::11");
+
+    } else if(strcmp("ATML2127031800004622", SERIAL) == 0) {
+		puts("I'm board 2");
+		ipv6_addr_from_str(&ip_addr, "affe::12");
+    } else {
+		printf("Unknown SERIAL = '%s'. Abort!\n", SERIAL);
+    }
+
+    // Sleep because neighbour discovery is not ready yet and IP would not be
+    // broadcasted
+    xtimer_sleep(1);
+
+    // Register new address
+	gnrc_ipv6_netif_add_addr(7, &ip_addr, 64, GNRC_IPV6_NETIF_ADDR_FLAGS_UNICAST);
+
 
     /* start shell */
     puts("All up, running the shell now");

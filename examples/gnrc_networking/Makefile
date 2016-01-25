@@ -19,6 +19,9 @@ USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules for IPv6 and UDP
 USEMODULE += gnrc_ipv6_router_default
 USEMODULE += gnrc_udp
+# needed for neighbour discovery
+USEMODULE += gnrc_sixlowpan_nd_border_router
+USEMODULE += gnrc_sixlowpan_router
 # Add a routing protocol
 USEMODULE += gnrc_rpl
 # This application dumps received packets to STDIO using the pktdump module
@@ -34,6 +37,11 @@ USEMODULE += ps
 # which is not needed in a production environment but helps in the
 # development process:
 CFLAGS += -DDEVELHELP
+
+# pass CMSIS-DAP serial to program for board discovery
+# build with:
+# $ touch main.c && make
+CFLAGS += -DSERIAL="\"$(SERIAL)\""
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
