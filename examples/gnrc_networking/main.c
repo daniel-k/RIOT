@@ -20,6 +20,10 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <thread.h>
+#include <net/af.h>
+#include <net/conn/udp.h>
+#include <stdint.h>
 
 #include "shell.h"
 #include "msg.h"
@@ -28,6 +32,9 @@
 
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
+static msg_t _msg_q[MAIN_QUEUE_SIZE];
+
+static ipv6_addr_t ip_addr;
 
 extern int udp_cmd(int argc, char **argv);
 
@@ -36,9 +43,58 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+#define LISTEN_PORT (1234)
+
+static char thread_stack[1024];
+static char ip_str[IPV6_ADDR_MAX_STR_LEN];
+
+void* _thread(void* arg)
+{
+	conn_udp_t conn;
+	char buf[128];
+
+
+    msg_init_queue(_msg_q, MAIN_QUEUE_SIZE);
+
+
+	uint8_t laddr[16] = { 0 };
+
+
+	uint8_t src_addr[16] = { 0 };
+	size_t src_addr_len;
+	uint16_t src_port = LISTEN_PORT;
+
+	conn_udp_create(&conn, laddr, sizeof(laddr), AF_INET6, LISTEN_PORT);
+
+
+
+	while(1) {
+		puts("Thread running, waiting for UDP packets ...");
+
+		int res = conn_udp_recvfrom (&conn, buf, sizeof(buf), src_addr, &src_addr_len, &src_port);
+
+		if(res < 0) {
+			puts("Error: something went wrong");
+		} else {
+			ipv6_addr_to_str(ip_str, (ipv6_addr_t*) src_addr, sizeof(ip_str));
+
+			printf("Received %d bytes on port %d from %s\n", res, src_port, ip_str);
+
+			// Answer back with same payload
+			conn_udp_sendto(buf, res, NULL, 0, src_addr, src_addr_len, AF_INET6, 42, LISTEN_PORT);
+		}
+
+//		xtimer_sleep(1);
+	}
+
+
+	return NULL;
+}
+
+
 int main(void)
 {
-    ipv6_addr_t ip_addr;
+
 
 	/* we need a message queue for the thread running the shell in order to
      * receive potentially fast incoming networking packets */
@@ -64,6 +120,8 @@ int main(void)
     // Register new address
 	gnrc_ipv6_netif_add_addr(7, &ip_addr, 64, GNRC_IPV6_NETIF_ADDR_FLAGS_UNICAST);
 
+
+	thread_create(thread_stack, sizeof(thread_stack), 8, THREAD_CREATE_STACKTEST, _thread, NULL, "thread-test");
 
     /* start shell */
     puts("All up, running the shell now");
