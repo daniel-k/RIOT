@@ -43,8 +43,8 @@ int main(void)
     gnrc_ipv6_netif_add_addr(6, &ip_addr, 0, 0);
 
     /* Set IP for 802.15.4 interface */
-    ipv6_addr_from_str(&ip_addr, "affe::3");
-    gnrc_ipv6_netif_add_addr(5, &ip_addr, 0, 0);
+//    ipv6_addr_from_str(&ip_addr, "affe::3");
+//    gnrc_ipv6_netif_add_addr(5, &ip_addr, 0, 0);
 
     /* Set static neighbour cache for SLIP tunnel */
     ipv6_addr_from_str(&ip_addr, "affe::1");
