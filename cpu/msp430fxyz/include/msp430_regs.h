@@ -389,7 +389,6 @@ typedef struct {
  * @brief   Base register address definitions
  * @{
  */
-#define SFR_BASE                ((uint16_t)0x0000)
 #define PORT_1_BASE             ((uint16_t)0x0020)
 #define PORT_2_BASE             ((uint16_t)0x0028)
 #define PORT_3_BASE             ((uint16_t)0x0018)

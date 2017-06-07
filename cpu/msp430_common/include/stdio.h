@@ -35,8 +35,6 @@ extern "C" {
 #define SEEK_CUR	1	/* Seek from current position.  */
 #define SEEK_END	2	/* Seek from end of file.  */
 
-int getchar(void);
-
 #ifdef __cplusplus
 }
 #endif

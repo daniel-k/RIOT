@@ -23,35 +23,24 @@
 
 #include "uart_stdio.h"
 
-/**
- * @brief   Get one character from STDIO - used by the libc
- */
-int getchar(void)
+
+_ssize_t _read_r(struct _reent *r, int fd, void *buffer, size_t count)
 {
-    char c;
-    uart_stdio_read(&c, 1);
-    return c;
+	(void)r;
+	(void)fd;
+	return uart_stdio_read(buffer, count);
 }
 
-/**
- * @brief   Write one character to the STDIO UART interface - used by e.g.
- *          printf and puts
- */
-int putchar(int c)
-{
-    char _c = c;
-    return uart_stdio_write(&_c, 1);
-}
 
 /**
  * @brief   Write nbyte characters to the STDIO UART interface
  */
 ssize_t write(int fildes, const void *buf, size_t nbyte)
 {
-    if (fildes == STDOUT_FILENO) {
-        return uart_stdio_write(buf, nbyte);
-    }
-    else {
-        return -1;
-    }
+	if (fildes == STDOUT_FILENO) {
+		return uart_stdio_write(buf, nbyte);
+	}
+	else {
+		return -1;
+	}
 }
