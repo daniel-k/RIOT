@@ -25,25 +25,14 @@
 extern "C" {
 #endif
 
+#include <msp430.h>
+
 /**
  * @name    Clock configuration
  * @{
  */
 /** @todo   Move all clock configuration code here from the board.h */
-#define CLOCK_CORECLOCK     (8000000U)
-
-#define CLOCK_CMCLK         CLOCK_CORECLOCK     /* no divider programmed */
-/** @} */
-
-/**
- * @name    Timer configuration
- * @{
- */
-#define TIMER_NUMOF         (1U)
-#define TIMER_BASE          (TIMER_A)
-#define TIMER_CHAN          (3)
-#define TIMER_ISR_CC0       (TIMER0_A0_VECTOR)
-#define TIMER_ISR_CCX       (TIMER0_A1_VECTOR)
+#define CLOCK_CORECLOCK     (1000000U)
 /** @} */
 
 /**
@@ -66,26 +55,7 @@ extern "C" {
 #define UART_RX_ISR         (49)
 #define UART_TX_ISR         (49)
 
-
-/** @} */
-
- /**
- * @name    SPI configuration
- * @{
- */
-#define SPI_NUMOF           (1U)
-
-/* SPI configuration */
-#define SPI_USE_USCI
-#define SPI_BASE            (USCI_0_B_SPI)
-#define SPI_IE              (SFR->IE2)
-#define SPI_IF              (SFR->IFG2)
-#define SPI_IE_RX_BIT       (1 << 2)
-#define SPI_IE_TX_BIT       (1 << 3)
-#define SPI_PIN_MISO        GPIO_PIN(P3,2)
-#define SPI_PIN_MOSI        GPIO_PIN(P3,1)
-#define SPI_PIN_CLK         GPIO_PIN(P3,3)
-/** @} */
+#define SPI_NUMOF	(0U)
 
 #ifdef __cplusplus
 }

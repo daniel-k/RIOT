@@ -1,5 +1,5 @@
 # CPU used by this board
-export CPU = msp430fxyz
+export CPU = msp430fr5xxx
 export CPU_MODEL = msp430fr5969
 
 # set default port depending on operating system

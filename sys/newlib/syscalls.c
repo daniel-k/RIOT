@@ -58,6 +58,8 @@ extern char _sheap;                 /* start of the heap */
 extern char _eheap;                 /* end of the heap */
 char *heap_top = &_sheap + 4;
 
+#if 0
+
 /**
  * @brief Initialize NewLib, called by __libc_init_array() from the startup script
  */
@@ -99,6 +101,9 @@ void _exit(int n)
  * @return      pointer to the newly allocated memory on success
  * @return      pointer set to address `-1` on failure
  */
+
+
+
 void *_sbrk_r(struct _reent *r, ptrdiff_t incr)
 {
     unsigned int state = irq_disable();
@@ -387,12 +392,12 @@ int _unlink_r(struct _reent *r, const char *path)
  * Note: the read function does not buffer - data will be lost if the function is not
  * called fast enough.
  */
-_ssize_t _read_r(struct _reent *r, int fd, void *buffer, size_t count)
-{
-    (void)r;
-    (void)fd;
-    return uart_stdio_read(buffer, count);
-}
+//_ssize_t _read_r(struct _reent *r, int fd, void *buffer, size_t count)
+//{
+//	(void)r;
+//	(void)fd;
+//	return uart_stdio_read(buffer, count);
+//}
 
 /*
  * Fallback write function
@@ -400,12 +405,18 @@ _ssize_t _read_r(struct _reent *r, int fd, void *buffer, size_t count)
  * All output is directed to uart_stdio, independent of the given file descriptor.
  * The write call will further block until the byte is actually written to the UART.
  */
-_ssize_t _write_r(struct _reent *r, int fd, const void *data, size_t count)
-{
-    (void) r;
-    (void) fd;
-    return uart_stdio_write(data, count);
-}
+//_ssize_t _write_r(struct _reent *r, int fd, const void *data, size_t count)
+//{
+//    (void) r;
+//    (void) fd;
+//    return uart_stdio_write(data, count);
+//}
+
+//_ssize_t write(int fd, const void *data, size_t count)
+//{
+//	return _write_r(NULL, fd, data, count);
+//}
+
 
 /* Stubs to avoid linking errors, these functions do not have any effect */
 int _open_r(struct _reent *r, const char *name, int flags, int mode)
@@ -503,4 +514,6 @@ int _gettimeofday_r(struct _reent *r, struct timeval *restrict tp, void *restric
     tp->tv_usec = now - (tp->tv_sec * US_PER_SEC);
     return 0;
 }
+#endif
+
 #endif

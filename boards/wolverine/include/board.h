@@ -1,35 +1,13 @@
 /*
- * Copyright (C) 2014 INRIA
- *               2015 Freie Universität Berlin
+ * Copyright (C) 2017 INSA Lyon
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
  * directory for more details.
  */
 
-#ifndef Z1_BOARD_H
-#define Z1_BOARD_H
-
-/**
- * @defgroup    boards_z1 Zolertia Z1
- * @ingroup     boards
- * @brief       Support for the Zolertia Z1 board.
- *
-<h2>Components</h2>
-\li MSP430F2617
-\li CC2420
-
-* @{
-*
- * @file
- * @brief       Zolertia Z1 board configuration
- *
- * @author      Kévin Roussel <Kevin.Roussel@inria.fr>
- * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
- *
- */
-
-#include <stdint.h>
+#ifndef WOLVERINE_BOARD_H
+#define WOLVERINE_BOARD_H
 
 #include "cpu.h"
 
@@ -43,30 +21,6 @@ extern "C" {
 #ifndef __MSP430FR5969__
 #define __MSP430FR5969__
 #endif
-
-/**
- * @name    Xtimer configuration
- * @{
- */
-#define XTIMER_DEV                  (0)
-#define XTIMER_CHAN                 (0)
-#define XTIMER_WIDTH                (16)
-#define XTIMER_BACKOFF              (40)
-/** @} */
-
-/**
- * @name    CPU core configuration
- * @{
- */
-/** @todo   Move this to the periph_conf.h */
-#define MSP430_INITIAL_CPU_SPEED    8000000uL
-#ifndef F_CPU
-#define F_CPU                       MSP430_INITIAL_CPU_SPEED
-#endif
-#define F_RC_OSCILLATOR             32768
-#define MSP430_HAS_DCOR             0
-#define MSP430_HAS_EXTERNAL_CRYSTAL 1
-/** @} */
 
 /**
  * @name    LED pin definitions and handlers
@@ -98,9 +52,10 @@ extern "C" {
  * @name    User button configuration
  * @{
  */
-#define USER_BTN_PxIN      P2IN
-#define USER_BTN_MASK      0x20
+#define USER_BTN_PxIN      P4IN
+#define USER_BTN_MASK      (1U << 5)
 
+#define USER_BTN_INIT()		do { P4DIR &= ~(USER_BTN_MASK); P4REN |= USER_BTN_MASK; P4OUT |= USER_BTN_MASK; } while(0)
 #define USER_BTN_PRESSED   ((USER_BTN_PxIN & USER_BTN_MASK) == 0)
 #define USER_BTN_RELEASED  ((USER_BTN_PxIN & USER_BTN_MASK) != 0)
 /** @} */
@@ -111,4 +66,4 @@ extern "C" {
 #endif
 
 /** @} */
-#endif /*  Z1_BOARD_H */
+#endif /*  WOLVERINE_BOARD_H */

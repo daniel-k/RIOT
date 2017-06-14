@@ -38,6 +38,8 @@
 #include "net/gnrc.h"
 #endif
 
+#include "board.h"
+
 int main(void)
 {
 #ifdef FEATURE_PERIPH_RTC
@@ -51,6 +53,12 @@ int main(void)
 #endif
 
     (void) puts("Welcome to RIOT!");
+
+//	int i =0;
+//	while(i++ < 100) {
+//		LED1_TOGGLE();
+//		__delay_cycles(1000000);
+//	}
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
