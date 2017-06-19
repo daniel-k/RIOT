@@ -29,6 +29,8 @@
 
 #include <malloc.h>
 
+#define atoi(x) (0)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
