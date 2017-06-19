@@ -132,22 +132,22 @@ void msp430_cpu_init(void)
  */
 //void *sbrk(int incr)
 //{
-//    char *stack_pointer;
+//	char *stack_pointer;
 
-//    asmv("mov r1, %0" : "=r"(stack_pointer));
-//    stack_pointer -= STACK_EXTRA;
+//	asmv("mov r1, %0" : "=r"(stack_pointer));
+//	stack_pointer -= STACK_EXTRA;
 
-//    if (incr > (stack_pointer - cur_break)) {
-//        return (void *) - 1;    /* ENOMEM */
-//    }
+//	if (incr > (stack_pointer - cur_break)) {
+//		return (void *) - 1;    /* ENOMEM */
+//	}
 
-//    void *old_break = cur_break;
-//    cur_break += incr;
-//    /*
-//     * If the stack was never here then [old_break .. cur_break] should
-//     * be filled with zeros.
-//    */
-//    return old_break;
+//	void *old_break = cur_break;
+//	cur_break += incr;
+//	/*
+//	 * If the stack was never here then [old_break .. cur_break] should
+//	 * be filled with zeros.
+//	*/
+//	return old_break;
 //}
 /*---------------------------------------------------------------------------*/
 /*

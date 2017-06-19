@@ -46,7 +46,7 @@ MEMORY {
   INFOB            : ORIGIN = 0x1900, LENGTH = 0x0080 /* END=0x197F, size 128 */
   INFOC            : ORIGIN = 0x1880, LENGTH = 0x0080 /* END=0x18FF, size 128 */
   INFOD            : ORIGIN = 0x1800, LENGTH = 0x0080 /* END=0x187F, size 128 */
-  ROM (rx)         : ORIGIN = 0x6400, LENGTH = 0x9B80 /* END=0xFF7F, size 39808 */
+  ROM              : ORIGIN = 0x6400, LENGTH = 0x9B80 /* END=0xFF7F, size 39808 */
   HIROM (rx)       : ORIGIN = 0x00010000, LENGTH = 0x000363FF
   VECT1            : ORIGIN = 0xFF80, LENGTH = 0x0002
   VECT2            : ORIGIN = 0xFF82, LENGTH = 0x0002
@@ -320,7 +320,8 @@ SECTIONS
     . = ALIGN(2);
     __heap_start__ = .;
     _end = __heap_start__;
-    PROVIDE (end = .); 
+    PROVIDE (end = .);
+    PROVIDE(_sheap = __heap_start__);
     KEEP (*(.heap))
     _end = .;
     PROVIDE (end = .);
@@ -328,12 +329,12 @@ SECTIONS
        not discarded by the linker.  The actual value does not matter
        and is ignored.  */
     LONG(0);
+    . += 2000;
     __heap_end__ = .;
     __HeapLimit = __heap_end__;
-  } > RAM
-  /* WARNING: Do not place anything in RAM here.
-     The heap section must be the last section in RAM and the stack
-     section must be placed at the very end of the RAM region.  */
+    PROVIDE(_eheap = __heap_end__);
+  } > ROM
+
 
   .stack (ORIGIN (RAM) + LENGTH(RAM)) :
   {
