@@ -11,6 +11,6 @@ export CFLAGS += $(CFLAGS_CPU) $(CFLAGS_LINK) $(CFLAGS_DBG) $(CFLAGS_OPT)
 # export assmebly flags
 export ASFLAGS += $(CFLAGS_CPU) --defsym $(CPU_MODEL)=1 $(CFLAGS_DBG)
 # export linker flags
-export LINKFLAGS += $(CFLAGS_CPU) $(CFLAGS_DBG) $(CFLAGS_OPT) -L/usr/msp430-elf/lib -T$(CPU_MODEL).ld -Wl,--gc-sections -static -lgcc
+export LINKFLAGS += $(CFLAGS_CPU) $(CFLAGS_DBG) $(CFLAGS_OPT) -L$(RIOTCPU)/$(CPU) -T$(CPU_MODEL).ld -T$(CPU_MODEL)_symbols.ld -Wl,--gc-sections -static -lgcc
 
 #export LINKFLAGS += -Wl,--defsym=_eheap=0 -Wl,--defsym=_sheap=0
