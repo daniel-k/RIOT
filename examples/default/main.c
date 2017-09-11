@@ -40,6 +40,35 @@
 
 #include "board.h"
 
+char stack[128];
+
+void* thread(void* arg)
+{
+	(void) arg;
+
+	int i = 0;
+	int pressed = 0;
+
+	USER_BTN_INIT();
+	LED2_INIT();
+
+	while(1)
+	{
+		if(USER_BTN_PRESSED && !pressed) {
+			i++;
+			puts("pressed");
+			LED2_TOGGLE();
+			pressed = 1;
+		}
+
+		if(USER_BTN_RELEASED) {
+			pressed = 0;
+		}
+
+		thread_yield();
+	}
+}
+
 int main(void)
 {
 #ifdef FEATURE_PERIPH_RTC
@@ -59,6 +88,11 @@ int main(void)
 //		LED1_TOGGLE();
 //		__delay_cycles(1000000);
 //	}
+
+
+	thread_create(stack, sizeof(stack), THREAD_PRIORITY_MAIN + 1,
+		THREAD_CREATE_WOUT_YIELD | THREAD_CREATE_STACKTEST,
+		thread, NULL, "user-thr");
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
