@@ -24,6 +24,8 @@ RIOTBASE ?= $(CURDIR)/../..
 # development process:
 CFLAGS += -DDEVELHELP
 
+CFLAGS += $(ADD_CFLAGS)
+
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
