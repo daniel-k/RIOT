@@ -40,6 +40,15 @@
 
 #include "board.h"
 
+#ifndef USER_BTN_INIT
+#define USER_BTN_INIT()
+#define LED2_INIT()
+#define LED2_TOGGLE()
+#define USER_BTN_PRESSED (0)
+#define USER_BTN_RELEASED (1)
+#endif
+
+
 char stack[128];
 
 void* thread(void* arg)
@@ -48,6 +57,8 @@ void* thread(void* arg)
 
 	int i = 0;
 	int pressed = 0;
+
+	(void) pressed;
 
 	USER_BTN_INIT();
 	LED2_INIT();
