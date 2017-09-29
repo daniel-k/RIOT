@@ -84,6 +84,8 @@ void syt_syscall_enter(void)
 static inline __attribute__((always_inline))
 void syt_syscall_exit(void)
 {
+    // /!\ DO NOT TAMPER WITH r12-r15, THEY CONTAIN FUNCTION RETURN VALUE
+
     // at driver return disable again interrupts for os operations
     _disable_interrupts();
 
@@ -106,6 +108,8 @@ void syt_syscall_exit(void)
                          : // no outputs
                          : // no inputs
                          );
+
+    asm("ret");
 }
 
 

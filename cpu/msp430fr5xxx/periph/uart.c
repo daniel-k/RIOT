@@ -36,23 +36,33 @@ static void *ctx_isr_arg;
 
 static int init_base(uart_t uart, uint32_t baudrate);
 
+// we have to prevent gcc from inlining this function, otherwise we get into trouble
+// with returns before switching back the stack
+__attribute__((used, noinline))
+static int _uart_init(uart_t uart, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
+{
+	if (init_base(uart, baudrate) < 0) {
+		return -1;
+	}
+
+	/* save interrupt context */
+	ctx_rx_cb = rx_cb;
+	ctx_isr_arg = arg;
+
+	return 0;
+}
+
 int uart_init(uart_t uart, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
 {
 	syt_syscall_enter();
 
-    if (init_base(uart, baudrate) < 0) {
-        return -1;
-    }
-
-    /* save interrupt context */
-    ctx_rx_cb = rx_cb;
-    ctx_isr_arg = arg;
-
+	__asm__ __volatile__("call #_uart_init");
 
 	syt_syscall_exit();
 
 	return 0;
 }
+
 
 static int init_base(uart_t uart, uint32_t baudrate)
 {
