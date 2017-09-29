@@ -36,6 +36,45 @@ static void *ctx_isr_arg;
 
 static int init_base(uart_t uart, uint32_t baudrate);
 
+typedef struct {
+    uint16_t ctlw0;
+    uint16_t brw;
+    uint16_t mctlw;
+    uint16_t ie;
+} uart_ctx_t;
+
+
+void uart_save(int handle)
+{
+    uart_ctx_t* ctx = syt_drv_get_ctx_next(handle);
+
+    // keep in reset
+    ctx->ctlw0 = UCA0CTLW0;
+    ctx->brw = UCA0BRW;
+    ctx->mctlw = UCA0MCTLW;
+    ctx->ie = UCA0IE;
+}
+
+void uart_restore(int handle)
+{
+    const uart_ctx_t* ctx = syt_drv_get_ctx_last(handle);
+
+    // reset
+    UCA0CTLW0 = UCSWRST;
+
+    // keep in reset
+    UCA0CTLW0   = ctx->ctlw0 | UCSWRST;
+    UCA0BRW     = ctx->brw;
+    UCA0MCTLW   = ctx->mctlw;
+    UCA0IE      = ctx->ie;
+
+    // release reset
+    UCA0CTLW0 &= ~(UCSWRST);
+
+	P2SEL0 &= ~(BIT0 | BIT1);
+	P2SEL1 |=  (BIT0 | BIT1);
+}
+
 // we have to prevent gcc from inlining this function, otherwise we get into trouble
 // with returns before switching back the stack
 __attribute__((used, noinline))
@@ -44,6 +83,8 @@ static int _uart_init(uart_t uart, uint32_t baudrate, uart_rx_cb_t rx_cb, void *
 	if (init_base(uart, baudrate) < 0) {
 		return -1;
 	}
+
+	syt_drv_register(uart_save, uart_restore, sizeof(uart_ctx_t));
 
 	/* save interrupt context */
 	ctx_rx_cb = rx_cb;
@@ -94,7 +135,8 @@ static int init_base(uart_t uart, uint32_t baudrate)
 	return 0;
 }
 
-void uart_write(uart_t uart, const uint8_t *data, size_t len)
+__attribute__((used, noinline))
+static void _uart_write(uart_t uart, const uint8_t *data, size_t len)
 {
     (void)uart;
 
@@ -102,6 +144,19 @@ void uart_write(uart_t uart, const uint8_t *data, size_t len)
 		while (!(UCA0IFG & UCTXIFG));
 		UCA0TXBUF = data[i];
     }
+}
+
+void uart_write(uart_t uart, const uint8_t *data, size_t len)
+{
+    (void) uart;
+    (void) data;
+    (void) len;
+
+    syt_syscall_enter();
+
+    __asm__ __volatile__("call #_uart_write");
+
+    syt_syscall_exit();
 }
 
 void uart_poweron(uart_t uart)
