@@ -24,6 +24,8 @@
 #include "periph_conf.h"
 #include "periph/uart.h"
 
+#include "sytare.h"
+
 /**
  * @brief   Keep track of the interrupt context
  * @{
@@ -36,6 +38,8 @@ static int init_base(uart_t uart, uint32_t baudrate);
 
 int uart_init(uart_t uart, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
 {
+	syt_syscall_enter();
+
     if (init_base(uart, baudrate) < 0) {
         return -1;
     }
@@ -43,6 +47,9 @@ int uart_init(uart_t uart, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
     /* save interrupt context */
     ctx_rx_cb = rx_cb;
     ctx_isr_arg = arg;
+
+
+	syt_syscall_exit();
 
 	return 0;
 }
