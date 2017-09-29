@@ -67,7 +67,7 @@ void* thread(void* arg)
 	{
 		if(USER_BTN_PRESSED && !pressed) {
 			i++;
-			puts("pressed");
+			printf("pressed(%i)\n", i);
 			LED2_TOGGLE();
 			pressed = 1;
 		}
