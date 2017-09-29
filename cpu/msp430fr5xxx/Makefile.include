@@ -1,5 +1,5 @@
 include $(RIOTCPU)/msp430_common/Makefile.include
 
-export USEMODULE += periph periph_common newlib uart_stdio
+export USEMODULE += periph periph_common newlib uart_stdio sytare
 
 export LINKFLAGS += -L$(RIOTCPU)/$(CPU) -T$(CPU_MODEL).ld -T$(CPU_MODEL)_symbols.ld
