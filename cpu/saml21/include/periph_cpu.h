@@ -42,6 +42,7 @@ static const int8_t exti_config[2][32] = {
 enum {
     PA = 0,                 /**< port A */
     PB = 1,                 /**< port B */
+    PC = 2,
 };
 
 /**
