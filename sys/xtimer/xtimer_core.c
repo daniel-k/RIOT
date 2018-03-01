@@ -164,6 +164,20 @@ static inline void _lltimer_set(uint32_t target)
     if (_in_handler) {
         return;
     }
+
+	uint32_t now = timer_read(XTIMER_DEV);
+	if(target < now) {
+		static int count = 0;
+		printf("\n\ntgt<now (%d)\n", ++count);
+
+		if(timer_list_head) {
+			puts("fire now\n\n");
+			_shoot(timer_list_head);
+			_remove(timer_list_head);
+		}
+		return;
+	}
+
     DEBUG("_lltimer_set(): setting %" PRIu32 "\n", _xtimer_lltimer_mask(target));
     timer_set_absolute(XTIMER_DEV, XTIMER_CHAN, _xtimer_lltimer_mask(target));
 }
