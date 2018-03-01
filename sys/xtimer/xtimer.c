@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Kaspar Schleiser <kaspar@schleiser.de>
- * Copyright (C) 2016 Eistec AB
+ * Copyright (C) 2016-2017 Eistec AB
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -58,80 +58,86 @@ void _xtimer_tsleep(uint32_t offset, uint32_t long_offset)
     }
 
     xtimer_t timer;
-    mutex_t mutex = MUTEX_INIT;
+    mutex_t mutex = MUTEX_INIT_LOCKED;
 
     timer.callback = _callback_unlock_mutex;
     timer.arg = (void*) &mutex;
     timer.target = timer.long_target = 0;
 
-    mutex_lock(&mutex);
     _xtimer_set64(&timer, offset, long_offset);
     mutex_lock(&mutex);
 }
 
+void _xtimer_periodic(xtimer_t *timer, uint32_t *last_wakeup, uint32_t period)
+{
+    uint32_t target = (*last_wakeup) + period;
+    uint32_t now = _xtimer_now();
+    do {
+        /* make sure we're not setting a value in the past */
+        if (now < (*last_wakeup)) {
+            /* base timer overflowed between last_wakeup and now */
+            if (!((now < target) && (target < (*last_wakeup)))) {
+                /* target time has already passed */
+                timer->callback(timer->arg);
+                break;
+            }
+        }
+        else {
+            /* base timer did not overflow */
+            if ((((*last_wakeup) <= target) && (target <= now))) {
+                /* target time has already passed */
+                timer->callback(timer->arg);
+                break;
+            }
+        }
+
+        /*
+         * For large offsets, set an absolute target time.
+         * As that might cause an underflow, for small offsets, set a relative
+         * target time.
+         * For very small offsets, spin.
+         */
+        /*
+         * Note: last_wakeup _must never_ specify a time in the future after
+         * _xtimer_periodic_sleep returns.
+         * If this happens, last_wakeup may specify a time in the future when the
+         * next call to _xtimer_periodic_sleep is made, which in turn will trigger
+         * the overflow logic above and make the next timer fire too early, causing
+         * last_wakeup to point even further into the future, leading to a chain
+         * reaction.
+         *
+         * tl;dr Don't return too early!
+         */
+        uint32_t offset = target - now;
+        DEBUG("xps, now: %9" PRIu32 ", tgt: %9" PRIu32 ", off: %9" PRIu32 "\n", now, target, offset);
+        if (offset < XTIMER_PERIODIC_SPIN) {
+            _xtimer_spin(offset);
+            timer->callback(timer->arg);
+        }
+        else {
+            if (offset < XTIMER_PERIODIC_RELATIVE) {
+                /* NB: This will overshoot the target by the amount of time it took
+                 * to get here from the beginning of xtimer_periodic_wakeup()
+                 *
+                 * Since interrupts are normally enabled inside this function, this time may
+                 * be nondeterministic. */
+                target = _xtimer_now() + offset;
+            }
+            DEBUG("xps, abs: %" PRIu32 "\n", target);
+            _xtimer_set_absolute(timer, target, now);
+        }
+    } while (0);
+    *last_wakeup = target;
+}
+
 void _xtimer_periodic_wakeup(uint32_t *last_wakeup, uint32_t period) {
     xtimer_t timer;
-    mutex_t mutex = MUTEX_INIT;
+    mutex_t mutex = MUTEX_INIT_LOCKED;
 
     timer.callback = _callback_unlock_mutex;
     timer.arg = (void*) &mutex;
-
-    uint32_t target = (*last_wakeup) + period;
-    uint32_t now = _xtimer_now();
-    /* make sure we're not setting a value in the past */
-    if (now < (*last_wakeup)) {
-        /* base timer overflowed between last_wakeup and now */
-        if (!((now < target) && (target < (*last_wakeup)))) {
-            /* target time has already passed */
-            goto out;
-        }
-    }
-    else {
-        /* base timer did not overflow */
-        if ((((*last_wakeup) <= target) && (target <= now))) {
-            /* target time has already passed */
-            goto out;
-        }
-    }
-
-    /*
-     * For large offsets, set an absolute target time.
-     * As that might cause an underflow, for small offsets, set a relative
-     * target time.
-     * For very small offsets, spin.
-     */
-    /*
-     * Note: last_wakeup _must never_ specify a time in the future after
-     * _xtimer_periodic_sleep returns.
-     * If this happens, last_wakeup may specify a time in the future when the
-     * next call to _xtimer_periodic_sleep is made, which in turn will trigger
-     * the overflow logic above and make the next timer fire too early, causing
-     * last_wakeup to point even further into the future, leading to a chain
-     * reaction.
-     *
-     * tl;dr Don't return too early!
-     */
-    uint32_t offset = target - now;
-    DEBUG("xps, now: %9" PRIu32 ", tgt: %9" PRIu32 ", off: %9" PRIu32 "\n", now, target, offset);
-    if (offset < XTIMER_PERIODIC_SPIN) {
-        _xtimer_spin(offset);
-    }
-    else {
-        if (offset < XTIMER_PERIODIC_RELATIVE) {
-            /* NB: This will overshoot the target by the amount of time it took
-             * to get here from the beginning of xtimer_periodic_wakeup()
-             *
-             * Since interrupts are normally enabled inside this function, this time may
-             * be undeterministic. */
-            target = _xtimer_now() + offset;
-        }
-        mutex_lock(&mutex);
-        DEBUG("xps, abs: %" PRIu32 "\n", target);
-        _xtimer_set_absolute(&timer, target);
-        mutex_lock(&mutex);
-    }
-out:
-    *last_wakeup = target;
+    _xtimer_periodic(&timer, last_wakeup, period);
+    mutex_lock(&mutex);
 }
 
 static void _callback_msg(void* arg)
@@ -147,6 +153,12 @@ static inline void _setup_msg(xtimer_t *timer, msg_t *msg, kernel_pid_t target_p
 
     /* use sender_pid field to get target_pid into callback function */
     msg->sender_pid = target_pid;
+}
+
+void _xtimer_periodic_msg(xtimer_t *timer, uint32_t *last_wakeup, uint32_t period, msg_t *msg, kernel_pid_t target_pid)
+{
+    _setup_msg(timer, msg, target_pid);
+    _xtimer_periodic(timer, last_wakeup, period);
 }
 
 void _xtimer_set_msg(xtimer_t *timer, uint32_t offset, msg_t *msg, kernel_pid_t target_pid)
