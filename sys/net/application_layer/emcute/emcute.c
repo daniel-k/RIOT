@@ -310,6 +310,9 @@ int emcute_discon(void)
         return EMCUTE_NOGW;
     }
 
+    // make sure we can reconnect afterwards
+    gateway.port = 0;
+
     mutex_lock(&txlock);
 
     tbuf[0] = 2;
